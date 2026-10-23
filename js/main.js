@@ -209,10 +209,19 @@ const onlineHooks = {
   },
 };
 
-function toggleMute() {
-  const m = audio.toggleMute();
-  $('#btn-mute').textContent = m ? '🔇' : '🔊';
+const MUTE_KEY = 'worms-muted';
+
+// Звук выключается и в меню (кнопка в углу), и в игре; выбор запоминается.
+function setMuted(m) {
+  audio.setMuted(m);
+  for (const b of [$('#btn-mute'), $('#btn-menu-mute')]) {
+    b.textContent = m ? '🔇' : '🔊';
+    b.setAttribute('aria-label', m ? 'Включить звук' : 'Выключить звук');
+  }
+  try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch (e) { /* без сохранения */ }
 }
+
+function toggleMute() { setMuted(!audio.muted); }
 
 // --- Цикл -------------------------------------------------------------
 
@@ -333,6 +342,15 @@ async function boot() {
   $('#btn-menu').addEventListener('click', toMenu);
   $('#btn-pause').addEventListener('click', () => setPaused(true));
   $('#btn-mute').addEventListener('click', toggleMute);
+  $('#btn-menu-mute').addEventListener('click', toggleMute);
+  let muted = false;
+  try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { /* по умолчанию со звуком */ }
+  setMuted(muted);
+  // M работает и в меню, если фокус не в поле ввода.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyM' || game || e.repeat || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    toggleMute();
+  });
   $('#opt-livebg').addEventListener('change', () => { saveSettings(readSettings()); updateLiveBackground(); });
   audio.musicOn = readSettings().music;
   $('#opt-music').addEventListener('change', () => {

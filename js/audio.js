@@ -27,7 +27,7 @@ class AudioManager {
     if (!AC) return;
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
-    this.master.gain.value = 0.9;
+    this.master.gain.value = this.muted ? 0 : 0.9;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16;
     comp.knee.value = 12;
@@ -642,11 +642,13 @@ class AudioManager {
     }
   }
 
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.master) this.master.gain.value = this.muted ? 0 : 0.9;
-    return this.muted;
+  setMuted(m) {
+    this.muted = m;
+    if (this.master) this.master.gain.value = m ? 0 : 0.9;
+    return m;
   }
+
+  toggleMute() { return this.setMuted(!this.muted); }
 }
 
 export const audio = new AudioManager();
