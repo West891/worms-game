@@ -2,7 +2,7 @@ import {
   TICK, WORLD_W, WORLD_H, WATER_Y, WATER, PHYS, GRAVITY, WORM_R, MAX_CLIMB, AIM_SPEED, CHARGE_TICKS, RETREAT_TIME, SETTLE_DELAY, WORM_NAMES,
 } from './config.js';
 import { Terrain } from './terrain.js';
-import { Worm, wormCollides, contactNormal } from './worm.js';
+import { Worm, wormCollides, wormTouches, contactNormal } from './worm.js';
 import {
   WEAPONS, WEAPON_BY_ID, CRATE_WEAPONS, Projectile, projectileTick, drawProjectile, drawHeldWeapon,
   airstrikeMissiles, muzzlePoint,
@@ -27,6 +27,7 @@ const ROPE_MAX = 300;
 const ROPE_REEL = 1.6;
 const ROPE_SWING = 0.075;
 const ROPE_MAX_SPEED = 9;
+const ROPE_KICK = 2.6;
 
 // Лазерный бур.
 const DRILL_TICKS = 300;
@@ -694,6 +695,7 @@ export class Game {
     const r = w.rope;
     const t = this.terrain;
     if (!t.isSolid(r.x, r.y)) { this.releaseRope(w); return null; }
+    if (r.kick > 0) r.kick--;
     w.vy += PHYS.g;
     w.vx *= 0.996;
     w.vy *= 0.996;
@@ -718,6 +720,29 @@ export class Game {
         while (up <= MAX_CLIMB && wormCollides(t, nx, ny - up)) up++;
         if (up <= MAX_CLIMB) { w.x = nx; w.y = ny - up; continue; }
         const n = contactNormal(t, nx, ny);
+        // Выступ: скользим вдоль его края в ту сторону, куда тянет движение,
+        // чтобы обогнуть его, а не застрять.
+        const mx = nx - w.x, my = ny - w.y;
+        const step = Math.max(0.6, Math.hypot(mx, my));
+        let tx = -n.y, ty = n.x;
+        if (tx * mx + ty * my < 0) { tx = -tx; ty = -ty; }
+        // Запасной вариант — шаг вбок от препятствия поперёк движения.
+        const ml = Math.hypot(mx, my) || 1;
+        let px = -my / ml, py = mx / ml;
+        if (px * n.x + py * n.y < 0) { px = -px; py = -py; }
+        const tries = [[tx * step, ty * step], [tx * step * 1.8, ty * step * 1.8], [px, py], [px * 2, py * 2]];
+        let slid = false;
+        for (const [ox, oy] of tries) {
+          let sx = w.x + ox + n.x * 0.3, sy = w.y + oy + n.y * 0.3;
+          const ddx = sx - r.x, ddy = sy - r.y, dd = Math.hypot(ddx, ddy);
+          if (dd > r.len + 2) { sx = r.x + ddx / dd * (r.len + 2); sy = r.y + ddy / dd * (r.len + 2); }
+          if (!wormCollides(t, sx, sy)) { w.x = sx; w.y = sy; slid = true; break; }
+        }
+        if (slid) {
+          const vn = w.vx * n.x + w.vy * n.y;
+          if (vn < 0) { w.vx -= vn * n.x; w.vy -= vn * n.y; }
+          continue;
+        }
         const vn = w.vx * n.x + w.vy * n.y;
         if (vn < 0) {
           w.vx = (w.vx - 1.3 * vn * n.x) * 0.85;
@@ -1354,8 +1379,19 @@ export class Game {
     // На верёвке стрелки раскачивают и меняют длину, огонь или прыжок — отцепиться.
     if (w.rope) {
       if (a.left !== a.right) {
-        w.vx += (a.left ? -1 : 1) * ROPE_SWING;
-        w.dir = a.left ? -1 : 1;
+        const dir = a.left ? -1 : 1;
+        w.vx += dir * ROPE_SWING;
+        w.dir = dir;
+        // Толчок ногами от стены, если давим от неё.
+        if (!(w.rope.kick > 0) && wormTouches(t, w.x, w.y)) {
+          const n = contactNormal(t, w.x, w.y);
+          if (n.x * dir > 0.25) {
+            w.vx += n.x * ROPE_KICK;
+            w.vy += n.y * ROPE_KICK * 0.5 - 0.8;
+            w.rope.kick = 20;
+            this.sfx.play('jump', { vol: 0.25, rate: 1.3, pan: this.panAt(w.x) });
+          }
+        }
       }
       if (a.up) w.rope.len = Math.max(ROPE_MIN, w.rope.len - ROPE_REEL);
       if (a.down) w.rope.len = Math.min(ROPE_MAX, w.rope.len + ROPE_REEL);

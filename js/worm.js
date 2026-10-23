@@ -111,6 +111,12 @@ export function wormCollides(terrain, x, y) {
   return false;
 }
 
+// Касается ли червяк земли хоть одним боком.
+export function wormTouches(terrain, x, y) {
+  for (const [dx, dy] of CONTACT_RING) if (terrain.isSolid(x + dx * (WORM_R + 2), y + dy * (WORM_R + 2))) return true;
+  return false;
+}
+
 export function contactNormal(terrain, x, y) {
   let nx = 0, ny = 0;
   for (const [dx, dy] of CONTACT_RING) {
