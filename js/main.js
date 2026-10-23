@@ -396,13 +396,20 @@ async function boot() {
     const done = () => { $('#net-copy').textContent = 'Скопировано'; setTimeout(() => { $('#net-copy').textContent = 'Скопировать'; }, 1500); };
     if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => {});
   });
-  online.ensure().then((t) => {
+  const showNetKind = (t) => {
     const kind = t ? t.kind : null;
-    $('#net-kind').textContent = {
-      claude: 'Играть могут все, кому открыт доступ к этой игре в claude.ai.',
-      supabase: 'Игра через интернет.',
-      local: 'Сервер для игры через интернет не настроен: соперники ищутся только в других вкладках этого браузера.',
-    }[kind] || 'Сетевая игра здесь недоступна.';
+    $('#net-kind').textContent = t && t.fallback
+      ? 'Нет связи с сервером — похоже, нет интернета. Играть с компьютером можно на вкладке «На одном устройстве».'
+      : {
+        claude: 'Играть могут все, кому открыт доступ к этой игре в claude.ai.',
+        supabase: 'Игра через интернет.',
+        local: 'Сервер для игры через интернет не настроен: соперники ищутся только в других вкладках этого браузера.',
+      }[kind] || 'Сетевая игра здесь недоступна.';
+  };
+  online.ensure().then(showNetKind);
+  window.addEventListener('online', () => {
+    $('#net-kind').textContent = 'Проверяем сеть…';
+    online.ensure().then(showNetKind);
   });
   const hash = (location.hash || '').slice(1);
   if (/^[a-z0-9]{6}$/i.test(hash)) {

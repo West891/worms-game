@@ -204,7 +204,17 @@ class SupabaseTransport {
     t.client = window.supabase.createClient(NET_CONFIG.supabaseUrl, NET_CONFIG.supabaseAnonKey, {
       realtime: { params: { eventsPerSecond: 20 } },
     });
-    t.lobby = await new SupabaseChannel(t.client, 'lobby', t.id, 2).joined;
+    try {
+      // Без интернета клиент переподключается бесконечно: ждём не дольше 8 с.
+      t.lobby = await Promise.race([
+        new SupabaseChannel(t.client, 'lobby', t.id, 2).joined,
+        new Promise((_, fail) => setTimeout(() => fail(new Error('Supabase: timeout')), 8000)),
+      ]);
+    } catch (e) {
+      t.client.removeAllChannels();
+      t.client.realtime.disconnect();
+      throw e;
+    }
     return t;
   }
 
@@ -226,14 +236,20 @@ export async function connectTransport() {
       if (room) return new RoomTransport(room);
     } catch (e) { /* нет комнат — пробуем дальше */ }
   }
-  if (NET_CONFIG.supabaseUrl && NET_CONFIG.supabaseAnonKey) {
+  const server = !!(NET_CONFIG.supabaseUrl && NET_CONFIG.supabaseAnonKey);
+  if (server && navigator.onLine !== false) {
     try {
       return await SupabaseTransport.create();
     } catch (e) {
       console.warn('Supabase недоступен:', e);
     }
   }
-  if (typeof BroadcastChannel === 'function') return new LocalTransport();
+  if (typeof BroadcastChannel === 'function') {
+    const t = new LocalTransport();
+    // Сервер настроен, но до него не достучались: скорее всего, нет интернета.
+    t.fallback = server;
+    return t;
+  }
   return null;
 }
 

@@ -32,6 +32,11 @@ export class Online {
   }
 
   async ensure() {
+    // Интернет вернулся — пробуем подключиться к серверу заново.
+    if (this.transport && this.transport.fallback && navigator.onLine && !this.channel && !this.session) {
+      this.transport = null;
+      this.pending = null;
+    }
     if (!this.pending) this.pending = connectTransport().catch(() => null);
     this.transport = await this.pending;
     return this.transport;
