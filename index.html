@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Червячная война</title>
+  <meta name="description" content="Пошаговая артиллерийская игра в духе Worms: разрушаемый ландшафт, ветер, базуки и гранаты.">
+  <link rel="icon" href="assets/icons/worms.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="splash" aria-hidden="true"><video id="splash-video" muted loop playsinline preload="none" disablepictureinpicture></video></div>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="timer"><span id="timer-val"></span></div>
+    <div id="wind" title="Ветер">
+      <img src="assets/icons/wind.svg" alt="">
+      <div class="wind-bar"><div class="half left"><div id="wind-left"></div></div><div class="half right"><div id="wind-right"></div></div></div>
+    </div>
+    <div id="hud-buttons">
+      <button id="btn-fullscreen" title="Во весь экран" class="hidden">⛶</button>
+      <button id="btn-mute" title="Звук (M)">🔊</button>
+      <button id="btn-pause" title="Пауза (Esc)">II</button>
+    </div>
+    <div id="banner"></div>
+    <div id="toast"></div>
+    <div id="teams"></div>
+    <div id="bottom">
+      <div id="weapon-info"></div>
+      <button id="weapon-toggle" title="Оружие"><img id="weapon-toggle-icon" src="assets/icons/bazooka.svg" alt=""><span>Оружие</span></button>
+      <div id="weapons"></div>
+    </div>
+    <div id="touch">
+      <div class="pad left-pad">
+        <button data-act="up">▲</button>
+        <div class="row"><button data-act="left">◀</button><button data-act="right">▶</button></div>
+        <button data-act="down">▼</button>
+      </div>
+      <div class="pad right-pad">
+        <button data-act="backflip" class="small">↶</button>
+        <button data-act="jump">⤴</button>
+        <button data-act="fire" class="fire">ОГОНЬ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="screen">
+    <div class="panel">
+      <h1 class="logo">Червячная<br>война</h1>
+      <div class="progress"><div id="loading-bar"></div></div>
+      <p id="loading-text">Загрузка…</p>
+    </div>
+  </div>
+
+  <div id="menu" class="screen hidden">
+    <div class="panel wide">
+      <h1 class="logo"><img src="assets/icons/worms.svg" alt="">Червячная война</h1>
+      <div class="tabs" role="tablist">
+        <button data-tab="online" class="active" role="tab">Онлайн</button>
+        <button data-tab="local" role="tab">На одном устройстве</button>
+      </div>
+      <div class="grid">
+        <section id="pane-online">
+          <label class="opt">Ваш ник
+            <input id="opt-nick" type="text" maxlength="18" autocomplete="nickname" spellcheck="false">
+          </label>
+          <button id="btn-find" class="big">Найти соперника</button>
+          <h2>Играть с другом</h2>
+          <div class="opt">
+            <select id="opt-friend-mode">
+              <option value="duel">Друг против друга</option>
+              <option value="coop">Вдвоём против компьютера</option>
+            </select>
+            <button id="btn-create" class="inline">Создать комнату</button>
+          </div>
+          <div class="opt">
+            <input id="opt-code" type="text" maxlength="6" placeholder="Код комнаты" autocomplete="off" spellcheck="false">
+            <button id="btn-join" class="inline">Войти</button>
+          </div>
+          <p id="net-kind" class="note">Проверяем сеть…</p>
+        </section>
+        <section id="pane-local" class="hidden">
+          <h2>Команды</h2>
+          <div id="menu-teams"></div>
+          <button id="btn-start" class="big">В бой!</button>
+        </section>
+        <section>
+          <h2>Настройки</h2>
+          <label class="opt">Червей в команде
+            <select id="opt-worms"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
+          </label>
+          <label class="opt">Компьютер
+            <select id="opt-difficulty">
+              <option value="easy">Новичок</option>
+              <option value="normal" selected>Боец</option>
+              <option value="hard">Снайпер</option>
+            </select>
+          </label>
+          <label class="opt">Карта
+            <select id="opt-theme">
+              <option value="random" selected>Случайная</option>
+              <option value="meadow">Луг</option>
+              <option value="desert">Пустыня</option>
+              <option value="snow">Снег</option>
+              <option value="halloween">Ночь Хэллоуина</option>
+              <option value="cemetery">Ночное кладбище</option>
+              <option value="spaceport">Космодром (низкая гравитация)</option>
+            </select>
+          </label>
+          <label class="opt">Время хода
+            <select id="opt-time"><option value="30">30 с</option><option value="45" selected>45 с</option><option value="60">60 с</option><option value="90">90 с</option></select>
+          </label>
+          <label class="opt">Голоса червяков
+            <select id="opt-voices"><option value="on" selected>вкл</option><option value="off">выкл</option></select>
+          </label>
+          <label class="opt">Бочки с горючим
+            <select id="opt-barrels"><option value="0">нет</option><option value="4" selected>4</option><option value="8">8</option></select>
+          </label>
+          <label class="opt">Внезапная смерть
+            <select id="opt-sudden"><option value="0">выкл</option><option value="20">20 ходов</option><option value="30" selected>30 ходов</option><option value="45">45 ходов</option></select>
+          </label>
+          <label class="opt">Музыка
+            <select id="opt-music"><option value="on" selected>вкл</option><option value="off">выкл</option></select>
+          </label>
+          <label class="opt">Живой фон
+            <select id="opt-livebg"><option value="auto" selected>авто</option><option value="on">вкл</option><option value="off">выкл</option></select>
+          </label>
+          <label class="opt">Графика
+            <select id="opt-quality"><option value="auto" selected>авто</option><option value="high">высокая</option><option value="low">экономная</option></select>
+          </label>
+          <label class="opt">Мины на карте
+            <select id="opt-mines"><option value="0">нет</option><option value="5" selected>5</option><option value="10">10</option></select>
+          </label>
+        </section>
+      </div>
+      <details class="help">
+        <summary>Управление</summary>
+        <ul>
+          <li><kbd>←</kbd> <kbd>→</kbd> — ползти, <kbd>↑</kbd> <kbd>↓</kbd> — прицел</li>
+          <li><kbd>Пробел</kbd> — держать для силы броска, отпустить — выстрел</li>
+          <li><kbd>Enter</kbd> — прыжок, <kbd>Backspace</kbd> — сальто назад</li>
+          <li><kbd>Tab</kbd> / <kbd>Q</kbd> <kbd>E</kbd> — смена оружия (или клик по панели)</li>
+          <li><kbd>1</kbd>–<kbd>5</kbd> — таймер гранаты</li>
+          <li>Авиаудар и телепорт — клик по карте</li>
+          <li>Перетаскивание — двигать камеру, колесо — масштаб</li>
+          <li><kbd>Esc</kbd> — пауза, <kbd>M</kbd> — звук</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="net-wait" class="screen hidden">
+    <div class="panel">
+      <h2 id="net-title"></h2>
+      <div id="net-code-box" class="hidden">
+        <div id="net-code" class="code"></div>
+        <button id="net-copy">Скопировать</button>
+      </div>
+      <p id="net-text"></p>
+      <button id="net-start" class="big hidden">Начать игру</button>
+      <button id="net-cancel">Отмена</button>
+    </div>
+  </div>
+
+  <div id="generating" class="screen hidden">
+    <div class="panel"><p>Насыпаем землю…</p></div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <h2>Пауза</h2>
+      <p id="pause-note" class="hidden">Сетевая игра не останавливается: соперник продолжает ход.</p>
+      <button id="btn-resume" class="big">Продолжить</button>
+      <button id="btn-quit">В меню</button>
+    </div>
+  </div>
+
+  <div id="gameover" class="screen hidden">
+    <div class="panel">
+      <h2 id="go-title"></h2>
+      <p id="go-sub"></p>
+      <button id="btn-again" class="big">Ещё раз</button>
+      <button id="btn-menu">В меню</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

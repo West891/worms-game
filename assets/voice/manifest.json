@@ -1,0 +1,277 @@
+{
+  "banks": {
+    "a": {
+      "airstrike": [
+        "a/airstrike_1.mp3",
+        "a/airstrike_2.mp3"
+      ],
+      "armageddon": [
+        "a/armageddon_1.mp3",
+        "a/armageddon_2.mp3"
+      ],
+      "backflip": [
+        "a/backflip_1.mp3",
+        "a/backflip_2.mp3"
+      ],
+      "banana": [
+        "a/banana_1.mp3",
+        "a/banana_2.mp3"
+      ],
+      "bat": [
+        "a/bat_1.mp3",
+        "a/bat_2.mp3"
+      ],
+      "bigHurt": [
+        "a/bigHurt_1.mp3",
+        "a/bigHurt_2.mp3",
+        "a/bigHurt_3.mp3"
+      ],
+      "burn": [
+        "a/burn_1.mp3",
+        "a/burn_2.mp3"
+      ],
+      "crate": [
+        "a/crate_1.mp3",
+        "a/crate_2.mp3"
+      ],
+      "death": [
+        "a/death_1.mp3",
+        "a/death_2.mp3",
+        "a/death_3.mp3"
+      ],
+      "donkey": [
+        "a/donkey_1.mp3",
+        "a/donkey_2.mp3"
+      ],
+      "drown": [
+        "a/drown_1.mp3",
+        "a/drown_2.mp3"
+      ],
+      "dynamite": [
+        "a/dynamite_1.mp3",
+        "a/dynamite_2.mp3"
+      ],
+      "fire": [
+        "a/fire_1.mp3",
+        "a/fire_2.mp3",
+        "a/fire_3.mp3"
+      ],
+      "fly": [
+        "a/fly_1.mp3",
+        "a/fly_2.mp3",
+        "a/fly_3.mp3"
+      ],
+      "holy": [
+        "a/holy_1.mp3",
+        "a/holy_2.mp3"
+      ],
+      "hurt": [
+        "a/hurt_1.mp3",
+        "a/hurt_2.mp3",
+        "a/hurt_3.mp3",
+        "a/hurt_4.mp3"
+      ],
+      "mine": [
+        "a/mine_1.mp3",
+        "a/mine_2.mp3"
+      ],
+      "molotov": [
+        "a/molotov_1.mp3",
+        "a/molotov_2.mp3"
+      ],
+      "oops": [
+        "a/oops_1.mp3",
+        "a/oops_2.mp3"
+      ],
+      "punch": [
+        "a/punch_1.mp3",
+        "a/punch_2.mp3"
+      ],
+      "quake": [
+        "a/quake_1.mp3",
+        "a/quake_2.mp3"
+      ],
+      "sheep": [
+        "a/sheep_1.mp3",
+        "a/sheep_2.mp3"
+      ],
+      "skip": [
+        "a/skip_1.mp3",
+        "a/skip_2.mp3"
+      ],
+      "taunt": [
+        "a/taunt_1.mp3",
+        "a/taunt_2.mp3",
+        "a/taunt_3.mp3"
+      ],
+      "throw": [
+        "a/throw_1.mp3",
+        "a/throw_2.mp3",
+        "a/throw_3.mp3"
+      ],
+      "timeup": [
+        "a/timeup_1.mp3",
+        "a/timeup_2.mp3"
+      ],
+      "turn": [
+        "a/turn_1.mp3",
+        "a/turn_2.mp3",
+        "a/turn_3.mp3"
+      ],
+      "victory": [
+        "a/victory_1.mp3",
+        "a/victory_2.mp3"
+      ]
+    },
+    "b": {
+      "airstrike": [
+        "b/airstrike_1.mp3",
+        "b/airstrike_2.mp3"
+      ],
+      "armageddon": [
+        "b/armageddon_1.mp3",
+        "b/armageddon_2.mp3"
+      ],
+      "backflip": [
+        "b/backflip_1.mp3",
+        "b/backflip_2.mp3"
+      ],
+      "banana": [
+        "b/banana_1.mp3",
+        "b/banana_2.mp3"
+      ],
+      "bat": [
+        "b/bat_1.mp3",
+        "b/bat_2.mp3"
+      ],
+      "bigHurt": [
+        "b/bigHurt_1.mp3",
+        "b/bigHurt_2.mp3",
+        "b/bigHurt_3.mp3"
+      ],
+      "burn": [
+        "b/burn_1.mp3",
+        "b/burn_2.mp3"
+      ],
+      "crate": [
+        "b/crate_1.mp3",
+        "b/crate_2.mp3"
+      ],
+      "death": [
+        "b/death_1.mp3",
+        "b/death_2.mp3",
+        "b/death_3.mp3"
+      ],
+      "donkey": [
+        "b/donkey_1.mp3",
+        "b/donkey_2.mp3"
+      ],
+      "drown": [
+        "b/drown_1.mp3",
+        "b/drown_2.mp3"
+      ],
+      "dynamite": [
+        "b/dynamite_1.mp3",
+        "b/dynamite_2.mp3"
+      ],
+      "fire": [
+        "b/fire_1.mp3",
+        "b/fire_2.mp3",
+        "b/fire_3.mp3"
+      ],
+      "fly": [
+        "b/fly_1.mp3",
+        "b/fly_2.mp3",
+        "b/fly_3.mp3"
+      ],
+      "holy": [
+        "b/holy_1.mp3",
+        "b/holy_2.mp3"
+      ],
+      "hurt": [
+        "b/hurt_1.mp3",
+        "b/hurt_2.mp3",
+        "b/hurt_3.mp3",
+        "b/hurt_4.mp3"
+      ],
+      "mine": [
+        "b/mine_1.mp3",
+        "b/mine_2.mp3"
+      ],
+      "molotov": [
+        "b/molotov_1.mp3",
+        "b/molotov_2.mp3"
+      ],
+      "oops": [
+        "b/oops_1.mp3",
+        "b/oops_2.mp3"
+      ],
+      "punch": [
+        "b/punch_1.mp3",
+        "b/punch_2.mp3"
+      ],
+      "quake": [
+        "b/quake_1.mp3",
+        "b/quake_2.mp3"
+      ],
+      "sheep": [
+        "b/sheep_1.mp3",
+        "b/sheep_2.mp3"
+      ],
+      "skip": [
+        "b/skip_1.mp3",
+        "b/skip_2.mp3"
+      ],
+      "taunt": [
+        "b/taunt_1.mp3",
+        "b/taunt_2.mp3",
+        "b/taunt_3.mp3"
+      ],
+      "throw": [
+        "b/throw_1.mp3",
+        "b/throw_2.mp3",
+        "b/throw_3.mp3"
+      ],
+      "timeup": [
+        "b/timeup_1.mp3",
+        "b/timeup_2.mp3"
+      ],
+      "turn": [
+        "b/turn_1.mp3",
+        "b/turn_2.mp3",
+        "b/turn_3.mp3"
+      ],
+      "victory": [
+        "b/victory_1.mp3",
+        "b/victory_2.mp3"
+      ]
+    },
+    "n": {
+      "armageddon": [
+        "n/armageddon_1.mp3"
+      ],
+      "bigHit": [
+        "n/bigHit_1.mp3",
+        "n/bigHit_2.mp3"
+      ],
+      "doubleDamage": [
+        "n/doubleDamage_1.mp3"
+      ],
+      "doubleKill": [
+        "n/doubleKill_1.mp3"
+      ],
+      "firstBlood": [
+        "n/firstBlood_1.mp3"
+      ],
+      "quake": [
+        "n/quake_1.mp3"
+      ],
+      "suddenDeath": [
+        "n/suddenDeath_1.mp3"
+      ],
+      "tripleKill": [
+        "n/tripleKill_1.mp3"
+      ]
+    }
+  }
+}
