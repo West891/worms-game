@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Червячная война",
-  "short_name": "Червяки",
+  "name": "Worms Online",
+  "short_name": "Worms Online",
   "description": "Пошаговая артиллерийская игра в духе Worms: разрушаемый ландшафт, ветер, базуки, овцы и бетонные ослы.",
   "lang": "ru",
   "start_url": "./",
@@ -18,7 +18,7 @@
     { "src": "assets/pwa/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "assets/pwa/screenshot-wide.jpg", "sizes": "1280x719", "type": "image/jpeg", "form_factor": "wide", "label": "Червячная война" },
-    { "src": "assets/pwa/screenshot-tall.jpg", "sizes": "576x1026", "type": "image/jpeg", "form_factor": "narrow", "label": "Червячная война" }
+    { "src": "assets/pwa/screenshot-wide.jpg", "sizes": "1280x719", "type": "image/jpeg", "form_factor": "wide", "label": "Worms Online" },
+    { "src": "assets/pwa/screenshot-tall.jpg", "sizes": "576x1026", "type": "image/jpeg", "form_factor": "narrow", "label": "Worms Online" }
   ]
 }
