@@ -5,7 +5,7 @@
 // когда впервые зазвучит. Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = 'b464a2b83d4f';
+const VERSION = '6381cf40f6c2';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
@@ -60,6 +60,7 @@ const PRECACHE = [
   "assets/icons/molotov.svg",
   "assets/icons/punch.svg",
   "assets/icons/quake.svg",
+  "assets/icons/rope.svg",
   "assets/icons/sheep.svg",
   "assets/icons/shotgun.svg",
   "assets/icons/skip.svg",

@@ -1,8 +1,8 @@
 import {
-  TICK, WORLD_W, WORLD_H, WATER_Y, WATER, PHYS, GRAVITY, WORM_R, AIM_SPEED, CHARGE_TICKS, RETREAT_TIME, SETTLE_DELAY, WORM_NAMES,
+  TICK, WORLD_W, WORLD_H, WATER_Y, WATER, PHYS, GRAVITY, WORM_R, MAX_CLIMB, AIM_SPEED, CHARGE_TICKS, RETREAT_TIME, SETTLE_DELAY, WORM_NAMES,
 } from './config.js';
 import { Terrain } from './terrain.js';
-import { Worm, wormCollides } from './worm.js';
+import { Worm, wormCollides, contactNormal } from './worm.js';
 import {
   WEAPONS, WEAPON_BY_ID, CRATE_WEAPONS, Projectile, projectileTick, drawProjectile, drawHeldWeapon,
   airstrikeMissiles, muzzlePoint,
@@ -16,6 +16,17 @@ import { recorder, buildSetup, guestTick } from './net/sync.js';
 import { buildScenery, drawSky, updateScenery, drawWeather, drawLights, drawFog } from './scenery.js';
 import { MAPS, MAP_KEYS } from './maps.js';
 import { haptic } from './quality.js';
+
+// Сколько тиков камера смотрит на место взрыва (2,75 с).
+const IMPACT_HOLD = 165;
+
+// Ниндзя-верёвка.
+const HOOK_SPEED = 16;
+const ROPE_MIN = 14;
+const ROPE_MAX = 300;
+const ROPE_REEL = 1.6;
+const ROPE_SWING = 0.075;
+const ROPE_MAX_SPEED = 9;
 
 // Шапки команд (рисуются в worm.js).
 export const HATS = ['cap', 'crown', 'tophat', 'cowboy', 'viking', 'party', 'wizard', 'helmet'];
@@ -42,6 +53,9 @@ export class Game {
     this.turnKills = 0;
     this.turnDamage = 0;
     this.homingTarget = null;
+    this.impact = null; // место последнего взрыва, куда смотрит камера
+    this.hook = null; // летящий крюк ниндзя-верёвки
+    this.ropeSync = null; // верёвка, которую прислал хост (у гостя)
     this.effects = new Effects(assets);
     this.sfx = audio;
     this.fx = this.effects;
@@ -170,6 +184,9 @@ export class Game {
     this.turnKills = 0;
     this.turnDamage = 0;
     this.homingTarget = null;
+    this.impact = null;
+    this.hook = null;
+    for (const w of this.worms) w.rope = null;
     this.turnFired = false;
     this.turnEnemyHit = false;
     this.turnFriendlyHit = false;
@@ -221,7 +238,7 @@ export class Game {
 
   newAiState() {
     const d = DIFFICULTY[this.opts.difficulty] || DIFFICULTY.normal;
-    return { phase: 'wait', timer: d.think + Math.random() * (d.jitter || 0), walked: 0 };
+    return { phase: 'wait', timer: d.think + Math.random() * (d.jitter || 0), walked: 0, stall: 0 };
   }
 
   // Соперник отключился: его червяками дальше управляет компьютер.
@@ -332,6 +349,7 @@ export class Game {
   }
 
   enterSettle() {
+    this.dropRope();
     this.state = 'settle';
     this.settleTimer = 0;
     this.settleTotal = 0;
@@ -629,6 +647,141 @@ export class Game {
     this.ui.onDamage(this);
   }
 
+  // --- Ниндзя-верёвка ---------------------------------------------------
+
+  shootHook(w) {
+    const v = w.aimVector();
+    this.hook = { x: w.x + v.x * 6, y: w.y - 2 + v.y * 6, vx: v.x * HOOK_SPEED, vy: v.y * HOOK_SPEED, worm: w };
+    this.sfx.play('throw', { vol: 0.45, pan: this.panAt(w.x) });
+    this.camera.manual = 0;
+  }
+
+  updateHook() {
+    const h = this.hook;
+    if (!h) return;
+    const w = h.worm;
+    if (w.dead || this.state !== 'aim' || w !== this.active) { this.hook = null; return; }
+    for (let i = 0; i < 4; i++) {
+      h.x += h.vx / 4;
+      h.y += h.vy / 4;
+      if (this.terrain.isSolid(h.x, h.y)) {
+        w.rope = { x: h.x, y: h.y, len: Math.max(ROPE_MIN, Math.hypot(w.x - h.x, w.y - h.y)) };
+        if (w.grounded) { w.vx = 0; w.vy = 0; }
+        w.grounded = false;
+        this.hook = null;
+        this.sfx.play('click', { vol: 0.9, pan: this.panAt(h.x) });
+        return;
+      }
+      if (Math.hypot(h.x - w.x, h.y - w.y) > ROPE_MAX || h.y > WATER.y || h.y < -400 || h.x < -100 || h.x > WORLD_W + 100) {
+        this.hook = null;
+        return;
+      }
+    }
+  }
+
+  // Тик червяка на верёвке: маятник с жёсткой связью и отскоками от земли.
+  ropeTick(w) {
+    const r = w.rope;
+    const t = this.terrain;
+    if (!t.isSolid(r.x, r.y)) { this.releaseRope(w); return null; }
+    w.vy += PHYS.g;
+    w.vx *= 0.996;
+    w.vy *= 0.996;
+    const sp = Math.hypot(w.vx, w.vy);
+    if (sp > ROPE_MAX_SPEED) { w.vx *= ROPE_MAX_SPEED / sp; w.vy *= ROPE_MAX_SPEED / sp; }
+    const steps = Math.max(1, Math.ceil(Math.hypot(w.vx, w.vy)) + 1);
+    for (let i = 0; i < steps; i++) {
+      let nx = w.x + w.vx / steps;
+      let ny = w.y + w.vy / steps;
+      const dx = nx - r.x, dy = ny - r.y, d = Math.hypot(dx, dy);
+      if (d > r.len) {
+        const ux = dx / d, uy = dy / d;
+        nx = r.x + ux * r.len;
+        ny = r.y + uy * r.len;
+        const vr = w.vx * ux + w.vy * uy;
+        if (vr > 0) { w.vx -= vr * ux; w.vy -= vr * uy; }
+      }
+      if (wormCollides(t, nx, ny)) {
+        // Мелкие кочки перешагиваем, как при ходьбе: иначе по неровной земле
+        // верёвка не подтягивает.
+        let up = 1;
+        while (up <= MAX_CLIMB && wormCollides(t, nx, ny - up)) up++;
+        if (up <= MAX_CLIMB) { w.x = nx; w.y = ny - up; continue; }
+        const n = contactNormal(t, nx, ny);
+        const vn = w.vx * n.x + w.vy * n.y;
+        if (vn < 0) {
+          w.vx = (w.vx - 1.3 * vn * n.x) * 0.85;
+          w.vy = (w.vy - 1.3 * vn * n.y) * 0.85;
+        }
+        if (wormCollides(t, w.x, w.y)) { w.x += n.x; w.y += n.y; }
+        break;
+      }
+      w.x = nx;
+      w.y = ny;
+    }
+    // Упёрлись в землю — подтягиваться дальше некуда.
+    r.len = Math.max(r.len, Math.hypot(w.x - r.x, w.y - r.y) - 0.5);
+    if (Math.abs(w.vx) > 0.3) w.dir = w.vx > 0 ? 1 : -1;
+    return null;
+  }
+
+  releaseRope(w) {
+    if (!w.rope) return;
+    w.rope = null;
+    w.grounded = false;
+    this.sfx.play('jump', { vol: 0.3, pan: this.panAt(w.x) });
+  }
+
+  dropRope() {
+    this.hook = null;
+    if (this.active && this.active.rope) this.releaseRope(this.active);
+  }
+
+  // Что рисовать: натянутая верёвка или летящий крюк (у гостя приходит с хоста).
+  ropeView() {
+    if (this.role === 'guest') return this.ropeSync || null;
+    const w = this.active;
+    if (w && w.rope) return { kind: 'rope', x: w.rope.x, y: w.rope.y };
+    if (this.hook) return { kind: 'hook', x: this.hook.x, y: this.hook.y };
+    return null;
+  }
+
+  drawRope(ctx) {
+    const rv = this.ropeView();
+    const w = this.active;
+    if (!rv || !w || w.dead) return;
+    const sx = w.x, sy = w.y - 2;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(40,24,10,0.85)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(rv.x, rv.y); ctx.stroke();
+    ctx.strokeStyle = '#d9b77a';
+    ctx.lineWidth = 1.1;
+    ctx.setLineDash([2.2, 1.6]);
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(rv.x, rv.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Крюк: три лапы, развёрнутые по направлению верёвки.
+    ctx.translate(rv.x, rv.y);
+    ctx.rotate(Math.atan2(rv.y - sy, rv.x - sx));
+    ctx.strokeStyle = '#2a2a30';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-5, 0); ctx.lineTo(1, 0);
+    ctx.moveTo(1, 0); ctx.quadraticCurveTo(3, -4, 0, -5);
+    ctx.moveTo(1, 0); ctx.quadraticCurveTo(3, 4, 0, 5);
+    ctx.stroke();
+    ctx.strokeStyle = '#b8bcc8';
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Камера задерживается на месте взрыва, чтобы было видно, куда попали.
+  markImpact(x, y) {
+    this.impact = { x, y, until: this.time + IMPACT_HOLD };
+  }
+
   explode(x, y, r, dmg) {
     // В сетевой игре координаты воронки округляются так же, как уходят гостю.
     if (this.carves) {
@@ -642,6 +795,7 @@ export class Game {
     if (r >= 30) haptic(Math.min(60, r));
     else this.sfx.play('break', { vol: 0.5, pan: this.panAt(x) });
     this.camera.shake = Math.max(this.camera.shake, r * 0.22);
+    this.markImpact(x, y);
     const reach = r + 10;
     for (const w of this.worms) {
       if (w.dead) continue;
@@ -783,6 +937,7 @@ export class Game {
   updateSettle() {
     const busy = this.projectiles.length > 0 || this.pending.length > 0 || this.spawnQueue.length > 0 ||
       this.quake > 0 || WATER.y > this.waterTarget + 0.5 ||
+      (this.impact && this.time < this.impact.until) ||
       this.worms.some((w) => !w.dead && !w.grounded) ||
       // Ящики и бочки, которые никак не улягутся, держат ход не дольше 8 с.
       this.items.some((it) => !it.dead && (it.fuse > 0 || (!it.resting && this.settleTotal < 8)));
@@ -812,10 +967,11 @@ export class Game {
 
   updateWorld() {
     const t = this.terrain;
+    this.updateHook();
     for (const w of this.worms) {
       if (w.dead) continue;
       if (w.hurtTimer > 0) w.hurtTimer--;
-      const res = w.update(t);
+      const res = w.rope ? this.ropeTick(w) : w.update(t);
       if (res) {
         if (res.impact > 2.5) {
           this.sfx.play('land', { vol: Math.min(1, res.impact / 6) });
@@ -823,7 +979,7 @@ export class Game {
         }
         if (res.fallDamage > 0) this.damageWorm(w, res.fallDamage);
       }
-      if (w.inWater) this.drown(w);
+      if (w.inWater) { w.rope = null; this.drown(w); }
       else if (w.shownHp !== w.hp) w.shownHp += Math.sign(w.hp - w.shownHp);
     }
 
@@ -1085,6 +1241,18 @@ export class Game {
       this.sfx.play('click', { vol: 0.6 });
       this.ui.onWeapon(this);
     }
+    // На верёвке стрелки раскачивают и меняют длину, огонь или прыжок — отцепиться.
+    if (w.rope) {
+      if (a.left !== a.right) {
+        w.vx += (a.left ? -1 : 1) * ROPE_SWING;
+        w.dir = a.left ? -1 : 1;
+      }
+      if (a.up) w.rope.len = Math.max(ROPE_MIN, w.rope.len - ROPE_REEL);
+      if (a.down) w.rope.len = Math.min(ROPE_MAX, w.rope.len + ROPE_REEL);
+      if (a.firePressed || a.jump || a.backflip) this.releaseRope(w);
+      return;
+    }
+    if (this.hook) return;
     if (!this.charging) {
       if (a.left !== a.right) {
         const moved = w.walk(t, a.left ? -1 : 1);
@@ -1115,6 +1283,11 @@ export class Game {
     if (a.up) w.aim = Math.min(Math.PI / 2, w.aim + AIM_SPEED);
     if (a.down) w.aim = Math.max(-Math.PI / 2, w.aim - AIM_SPEED);
     const def = this.weapon;
+    if (def.rope) {
+      // Крюк можно выпустить и в прыжке или падении.
+      if (a.firePressed) this.shootHook(w);
+      return;
+    }
     if (def.needsTarget && a.click) {
       this.homingTarget = { x: a.click.x, y: a.click.y };
       this.ui.onWeapon(this);
@@ -1248,6 +1421,12 @@ export class Game {
         break;
       }
       case 'charge':
+        // Зарядка почему-то не началась: жмём «огонь» заново, а не ждём конца хода.
+        if (!this.charging) {
+          if (++ai.stall > 10) { ai.stall = 0; ai.phase = 'aim'; }
+          break;
+        }
+        ai.stall = 0;
         a.fireHeld = this.power < ai.plan.power;
         if (!a.fireHeld) a.fireReleased = true;
         break;
@@ -1320,12 +1499,14 @@ export class Game {
     if (this.pending.length) return { x: this.pending[0].x, y: this.pending[0].y };
     const mover = this.worms.find((w) => !w.dead && w.flying);
     if (mover) return { x: mover.x, y: mover.y, fast: true };
+    const imp = this.impact;
+    if (imp && this.time < imp.until && this.state !== 'aim' && this.state !== 'turnStart') return { x: imp.x, y: imp.y };
     const fuse = this.projectiles.find((p) => p.fuse > 0) || this.items.find((it) => it.fuse > 0);
     if (fuse) return { x: fuse.x, y: fuse.y };
     if (this.state === 'turnStart' || this.state === 'aim' || this.state === 'retreat') {
       const crate = this.items.find((it) => it.parachute && this.state === 'turnStart');
       if (crate) return { x: crate.x, y: crate.y };
-      if (this.active) return { x: this.active.x, y: this.active.y - 30 };
+      if (this.active) return { x: this.active.x, y: this.active.y - 30, fast: !this.active.grounded };
     }
     return null;
   }
@@ -1395,6 +1576,7 @@ export class Game {
 
     const active = this.active;
     const aiming = active && !active.dead && (this.state === 'aim') && active.grounded;
+    this.drawRope(ctx);
     for (const w of this.worms) {
       if (w.dead) continue;
       let look = null;

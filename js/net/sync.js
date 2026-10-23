@@ -39,6 +39,11 @@ export function buildSetup(game) {
   };
 }
 
+function ropeSnapshot(game) {
+  const rv = game.ropeView();
+  return rv ? [rv.kind === 'rope' ? 1 : 2, r1(rv.x), r1(rv.y)] : 0;
+}
+
 export function buildSnapshot(game) {
   const winner = game.over ? (game.winner ? game.winner.index : -1) : undefined;
   return {
@@ -65,6 +70,7 @@ export function buildSnapshot(game) {
     wl: Math.round(WATER.y),
     ht: game.homingTarget ? [r1(game.homingTarget.x), r1(game.homingTarget.y)] : 0,
     qk: game.quake > 0 ? 1 : 0,
+    rp: ropeSnapshot(game),
     it: game.items.map((it) => [
       ITEM_TYPES.indexOf(it.type), r1(it.x), r1(it.y),
       (it.parachute ? 1 : 0) | (it.fuse > 0 ? 2 : 0) | (it.armDelay > 0 ? 4 : 0) | (it.content === 'health' ? 8 : 0),
@@ -92,6 +98,8 @@ export function applySnapshot(game, s) {
   if (Number.isFinite(s.wl)) game.waterTarget = s.wl;
   game.homingTarget = Array.isArray(s.ht) ? { x: +s.ht[0], y: +s.ht[1] } : null;
   game.quake = s.qk ? 1 : 0;
+  game.ropeSync = Array.isArray(s.rp) && Number.isFinite(+s.rp[1]) && Number.isFinite(+s.rp[2])
+    ? { kind: s.rp[0] === 1 ? 'rope' : 'hook', x: +s.rp[1], y: +s.rp[2] } : null;
 
   let hpChanged = false;
   s.w.forEach((d, i) => {
@@ -197,7 +205,10 @@ export function replayEvent(game, [, tag, method, args]) {
     if (method === 'text') args[4] = Math.min(40, +args[4] || 14);
     if (method === 'splash') args[2] = Math.min(3, +args[2] || 1);
     game.effects[method](...args);
-    if (method === 'explosion') game.camera.shake = Math.max(game.camera.shake, args[2] * 0.22);
+    if (method === 'explosion') {
+      game.camera.shake = Math.max(game.camera.shake, args[2] * 0.22);
+      game.markImpact(+args[0], +args[1]);
+    }
   } else if (tag === 'g') {
     if (method === 'toast') game.ui.toast(String(args[0]).slice(0, 120));
     else if (method === 'tracer') game.tracers.push({ x0: +args[0], y0: +args[1], x1: +args[2], y1: +args[3], life: 12 });

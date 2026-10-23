@@ -111,7 +111,7 @@ export function wormCollides(terrain, x, y) {
   return false;
 }
 
-function contactNormal(terrain, x, y) {
+export function contactNormal(terrain, x, y) {
   let nx = 0, ny = 0;
   for (const [dx, dy] of CONTACT_RING) {
     if (terrain.isSolid(x + dx * (WORM_R + 2), y + dy * (WORM_R + 2))) { nx -= dx; ny -= dy; }
@@ -194,6 +194,7 @@ export class Worm {
   }
 
   knock(vx, vy) {
+    this.rope = null;
     this.vx += vx;
     this.vy += vy;
     this.grounded = false;
