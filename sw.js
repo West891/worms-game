@@ -5,7 +5,7 @@
 // когда впервые зазвучит. Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = 'bc0db2a0e929';
+const VERSION = '051d25480d45';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
@@ -268,7 +268,7 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
   // Видео заставки большое и нужно только при сети: не кэшируем.
   if (url.pathname.includes('/assets/video/')) return;
-  if (req.headers.has('range')) e.respondWith(ranged(e, req, url));
+  if (req.headers.has('range')) e.respondWith(ranged(req, url));
   else if (req.mode === 'navigate' || isCode(url)) e.respondWith(networkFirst(req));
   else e.respondWith(cacheFirst(req, isMusic(url) ? MEDIA : CORE));
 });
@@ -298,17 +298,11 @@ async function cacheFirst(req, name) {
   return res;
 }
 
-// <audio> просит файл кусками (Range). Из кэша отдаём нужный кусок сами, а при
-// первом проигрывании докачиваем файл целиком в фоне, чтобы дальше он был офлайн.
-async function ranged(e, req, url) {
+// <audio> просит файл кусками (Range). Если файл в кэше, нужный кусок отдаём сами.
+// Целиком музыку в кэш кладёт сама страница (audio.trackSource) обычным запросом.
+async function ranged(req, url) {
   const hit = await caches.match(url.href, { ignoreSearch: true });
-  if (hit) return slice(req, hit);
-  if (isMusic(url)) {
-    e.waitUntil(fetch(url.href).then(async (res) => {
-      if (res.ok && res.status === 200) await (await caches.open(MEDIA)).put(url.href, res);
-    }).catch(() => {}));
-  }
-  return fetch(req);
+  return hit ? slice(req, hit) : fetch(req);
 }
 
 async function slice(req, res) {

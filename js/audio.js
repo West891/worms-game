@@ -531,9 +531,14 @@ class AudioManager {
   // alive() — ещё нужен ли трек (для запасной загрузки через blob:).
   streamTrack(url, vol, alive = () => true) {
     try {
-      const el = new Audio(url);
+      const el = new Audio();
       el.loop = true;
       el.preload = 'auto';
+      this.trackSource(url).then((src) => {
+        if (!alive()) { if (src.startsWith('blob:')) URL.revokeObjectURL(src); return; }
+        el.src = src;
+        if (!this.paused && !document.hidden) el.play().catch(() => {});
+      });
       // Если хостинг не отдаёт файл тегу <audio>, пробуем через fetch и blob:.
       el.onerror = async () => {
         el.onerror = null;
@@ -548,11 +553,22 @@ class AudioManager {
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(vol, t + 2);
       node.connect(g).connect(this.master);
-      el.play().catch(() => {});
       return { el, g };
     } catch (e) {
       return null;
     }
+  }
+
+  // Откуда играть трек. Установленная игра (PWA) хранит музыку в кэше: тогда
+  // берём её оттуда, иначе играем из сети и параллельно докачиваем файл целиком
+  // через сервис-воркер, чтобы в следующий раз он был и без интернета.
+  async trackSource(url) {
+    try {
+      const hit = window.caches && await caches.match(url, { ignoreSearch: true });
+      if (hit) return URL.createObjectURL(await hit.blob());
+    } catch (e) { /* кэш недоступен — играем из сети */ }
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) fetch(url).catch(() => {});
+    return url;
   }
 
   fadeOutTrack(l, time = 0.6) {
