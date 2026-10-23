@@ -477,7 +477,7 @@ function releaseWakeLock() {
 }
 
 // Хук для отладки из консоли браузера.
-window.__worms = { get game() { return game; }, input, audio };
+window.__worms = { get game() { return game; }, get online() { return online; }, input, audio };
 
 // --- Установка как приложение (PWA) ----------------------------------
 

@@ -77,7 +77,16 @@ export class Online {
     const t = this.transport;
     if (t && !this.committing) {
       const myId = t.lobby.id;
-      const list = t.lobby.peers()
+      const peers = t.lobby.peers();
+      // Нас уже выбрали в пару: через интернет второй игрок мог заметить нас
+      // раньше, чем мы его, и уже ждёт в комнате.
+      const invite = peers.find((p) => !p.isMe && p.presence && p.presence.mm && p.presence.mm.v === PROTOCOL &&
+        p.presence.mm.st === 'match' && p.presence.mm.with === myId);
+      if (invite) {
+        this.commitMatch(invite);
+        return;
+      }
+      const list = peers
         .filter((p) => p.presence && p.presence.mm && p.presence.mm.v === PROTOCOL && p.presence.mm.st === 'search')
         .sort((a, b) => (a.presence.mm.since - b.presence.mm.since) || (a.id < b.id ? -1 : 1));
       const i = list.findIndex((p) => p.id === myId);
@@ -99,7 +108,7 @@ export class Online {
     const host = myId < partner.id;
     const name = ('d-' + clean(host ? myId : partner.id).slice(0, 20) + '-' + clean(host ? partner.id : myId).slice(0, 20)).slice(0, 48);
     const theirNick = safeNick(partner.presence.mm.nick);
-    t.lobby.setPresence({ mm: { v: PROTOCOL, nick: this.nick, since: partner.presence.mm.since, st: 'match' } });
+    t.lobby.setPresence({ mm: { v: PROTOCOL, nick: this.nick, since: partner.presence.mm.since, st: 'match', with: partner.id } });
     this.setWaitText(`Соперник найден: ${theirNick}. Подключаемся…`);
     try {
       this.channel = await t.join(name);
@@ -239,7 +248,7 @@ export class Online {
     if (host) {
       this.joinDeadline = Infinity;
       if (host.presence.host.v !== PROTOCOL) { this.showError('У друга другая версия игры — обновите страницу'); return; }
-      this.setWaitText(`Вы в комнате у ${safeNick(host.presence.host.nick)}. Ждём, когда он начнёт игру.`);
+      this.setWaitText(`Вы в комнате у ${safeNick(host.presence.host.nick)}. Ждём, когда начнётся игра.`);
     } else if (now > this.joinDeadline) {
       this.showError('Комната не найдена. Проверьте код или попросите друга создать новую.');
     }
