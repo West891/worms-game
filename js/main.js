@@ -303,7 +303,7 @@ async function boot() {
   canvas.addEventListener('pointerdown', () => $('#bottom').classList.remove('open'));
 
   // Полный экран (где разрешён) и поворот в альбомную ориентацию.
-  if (touch && document.fullscreenEnabled) {
+  if (touch && document.fullscreenEnabled && !installedApp()) {
     $('#btn-fullscreen').classList.remove('hidden');
     $('#btn-fullscreen').addEventListener('click', async () => {
       try {
@@ -479,4 +479,46 @@ function releaseWakeLock() {
 // Хук для отладки из консоли браузера.
 window.__worms = { get game() { return game; }, input, audio };
 
+// --- Установка как приложение (PWA) ----------------------------------
+
+const installedApp = () => navigator.standalone === true ||
+  !!(window.matchMedia && window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches);
+
+function setupInstall() {
+  // В рамке (страница claude.ai) сервис-воркер и установка недоступны.
+  let framed = true;
+  try { framed = window.top !== window; } catch (e) { /* чужая рамка */ }
+  if (framed || !('serviceWorker' in navigator) || !window.isSecureContext) return;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (installedApp()) return;
+
+  const btn = $('#btn-install');
+  const hint = $('#install-hint');
+  let prompt = null;
+  let hintTimer = 0;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    prompt = e;
+    btn.classList.remove('hidden');
+  });
+  window.addEventListener('appinstalled', () => { prompt = null; btn.classList.add('hidden'); });
+  // Safari на iPhone и iPad не умеет предлагать установку сам: показываем подсказку.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios) btn.classList.remove('hidden');
+  btn.addEventListener('click', async () => {
+    if (prompt) {
+      const p = prompt;
+      prompt = null;
+      p.prompt();
+      const { outcome } = await p.userChoice.catch(() => ({}));
+      if (outcome === 'accepted') btn.classList.add('hidden');
+    } else if (ios) {
+      hint.classList.toggle('hidden');
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => hint.classList.add('hidden'), 9000);
+    }
+  });
+}
+
+setupInstall();
 boot();
