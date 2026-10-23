@@ -71,6 +71,7 @@ export function buildSnapshot(game) {
     ht: game.homingTarget ? [r1(game.homingTarget.x), r1(game.homingTarget.y)] : 0,
     qk: game.quake > 0 ? 1 : 0,
     rp: ropeSnapshot(game),
+    dr: game.drill ? [r1(game.drill.hx), r1(game.drill.hy)] : 0,
     it: game.items.map((it) => [
       ITEM_TYPES.indexOf(it.type), r1(it.x), r1(it.y),
       (it.parachute ? 1 : 0) | (it.fuse > 0 ? 2 : 0) | (it.armDelay > 0 ? 4 : 0) | (it.content === 'health' ? 8 : 0),
@@ -98,6 +99,8 @@ export function applySnapshot(game, s) {
   if (Number.isFinite(s.wl)) game.waterTarget = s.wl;
   game.homingTarget = Array.isArray(s.ht) ? { x: +s.ht[0], y: +s.ht[1] } : null;
   game.quake = s.qk ? 1 : 0;
+  game.drillSync = Array.isArray(s.dr) && Number.isFinite(+s.dr[0]) && Number.isFinite(+s.dr[1])
+    ? { x: +s.dr[0], y: +s.dr[1] } : null;
   game.ropeSync = Array.isArray(s.rp) && Number.isFinite(+s.rp[1]) && Number.isFinite(+s.rp[2])
     ? { kind: s.rp[0] === 1 ? 'rope' : 'hook', x: +s.rp[1], y: +s.rp[2] } : null;
 
@@ -219,6 +222,7 @@ export function replayEvent(game, [, tag, method, args]) {
 // Один тик у гостя: ввод уходит хосту, объекты плавно догоняют снимок.
 export function guestTick(game, input) {
   game.time++;
+  game.drillFx();
   if (WATER.y > game.waterTarget) WATER.y = Math.max(game.waterTarget, WATER.y - 0.5);
   if (game.quake) game.camera.shake = Math.max(game.camera.shake, 7);
   const net = game.net;

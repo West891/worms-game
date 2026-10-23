@@ -22,6 +22,7 @@ export const WEAPONS = [
   { id: 'armageddon', name: 'Армагеддон', icon: 'armageddon', ammo: 0, hint: 'Метеоритный дождь по всей карте' },
   { id: 'quake', name: 'Землетрясение', icon: 'quake', ammo: 0, hint: 'Трясёт всех червяков на карте' },
   { id: 'rope', name: 'Ниндзя-верёвка', icon: 'rope', ammo: Infinity, rope: true, hint: 'Огонь — крюк, ←→ раскачка, ↑↓ длина, прыжок — отцепиться' },
+  { id: 'drill', name: 'Лазерный бур', icon: 'drill', ammo: Infinity, drill: true, hint: 'Огонь — бурить, ↑↓ направление, огонь или прыжок — стоп' },
   { id: 'teleport', name: 'Телепорт', icon: 'teleport', ammo: 2, target: true, hint: 'Кликни, куда переместиться' },
   { id: 'skip', name: 'Пропустить ход', icon: 'skip', ammo: Infinity, hint: 'Ничего не делать' },
 ];
@@ -756,6 +757,37 @@ export function drawHeldWeapon(ctx, worm, weaponId) {
       ctx.fillStyle = '#2a2a2e';
       ctx.fillRect(6, 3, 0.9, 2); ctx.fillRect(9.5, 3, 0.9, 2);
       hand(ctx, 4, 3.6);
+      break;
+    }
+    case 'drill': {
+      // Лазерный бур: корпус с рёбрами охлаждения, светящаяся катушка и эмиттер.
+      rrect(ctx, -6, -3.2, 15, 6.4, 2);
+      ctx.fillStyle = tube(ctx, -3.2, 3.2, '#3a3f4c', '#7c8496', '#c8cfdc');
+      ctx.fill();
+      outline(ctx);
+      ctx.fillStyle = '#2a2e38';
+      for (const x of [-4, -2, 0]) ctx.fillRect(x, -3.2, 0.9, 6.4);
+      const glow = 0.6 + Math.sin(t * 0.25) * 0.4;
+      ctx.fillStyle = `rgba(80,230,255,${0.55 + glow * 0.45})`;
+      rrect(ctx, 2.5, -2.2, 4.5, 4.4, 1.2);
+      ctx.fill();
+      ctx.strokeStyle = '#1b5a6a'; ctx.lineWidth = 0.5; ctx.stroke();
+      // Сопло.
+      ctx.beginPath();
+      ctx.moveTo(9, -2.6); ctx.lineTo(14.5, -1.4); ctx.lineTo(14.5, 1.4); ctx.lineTo(9, 2.6); ctx.closePath();
+      ctx.fillStyle = tube(ctx, -2.6, 2.6, '#25262c', '#4a4c56', '#8a8e9c');
+      ctx.fill();
+      outline(ctx);
+      ctx.fillStyle = `rgba(255,70,50,${0.6 + glow * 0.4})`;
+      ctx.beginPath(); ctx.arc(14.6, 0, 1.3, 0, Math.PI * 2); ctx.fill();
+      // Рукоять.
+      ctx.beginPath();
+      ctx.moveTo(-3, 3); ctx.lineTo(0, 3); ctx.lineTo(-0.6, 7); ctx.lineTo(-3.4, 7); ctx.closePath();
+      ctx.fillStyle = '#2b2e36';
+      ctx.fill();
+      outline(ctx, 0.6);
+      hand(ctx, -1.8, 6.2);
+      hand(ctx, 6, 3.6);
       break;
     }
     case 'rope': {

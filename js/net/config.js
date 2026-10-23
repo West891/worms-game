@@ -14,4 +14,4 @@ export const NET_CONFIG = {
 };
 
 // Версия протокола: игроки с разными версиями не попадают друг к другу.
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;

@@ -170,6 +170,24 @@ export class Effects {
     }
   }
 
+  // Искры и раскалённые брызги из-под лазерного бура.
+  sparks(x, y) {
+    for (let i = 0; i < 3; i++) {
+      const a = rand(0, Math.PI * 2), v = rand(0.8, 2.6);
+      this.add({
+        img: Math.random() < 0.5 ? this.sp.fireYellow : this.sp.fireOrange,
+        x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.6, g: 0.12, drag: 0.96,
+        s0: rand(3, 6), s1: 0, life: rand(14, 26) | 0, add: true,
+      });
+    }
+    if (Math.random() < 0.3) {
+      this.add({
+        img: this.sp.smokeDark, x, y, vx: rand(-0.3, 0.3), vy: -rand(0.2, 0.6),
+        s0: 5, s1: 16, life: 35, a0: 0.35, a1: 0,
+      });
+    }
+  }
+
   dust(x, y) {
     for (let i = 0; i < 6; i++) {
       this.add({

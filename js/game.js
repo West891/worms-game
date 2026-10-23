@@ -28,6 +28,11 @@ const ROPE_REEL = 1.6;
 const ROPE_SWING = 0.075;
 const ROPE_MAX_SPEED = 9;
 
+// Лазерный бур.
+const DRILL_TICKS = 300;
+const DRILL_SPEED = 0.75;
+const DRILL_R = 11;
+
 // Шапки команд (рисуются в worm.js).
 export const HATS = ['cap', 'crown', 'tophat', 'cowboy', 'viking', 'party', 'wizard', 'helmet'];
 
@@ -55,6 +60,9 @@ export class Game {
     this.homingTarget = null;
     this.impact = null; // место последнего взрыва, куда смотрит камера
     this.hook = null; // летящий крюк ниндзя-верёвки
+    this.drill = null; // работающий лазерный бур
+    this.drillSync = null; // голова бура, которую прислал хост (у гостя)
+    this.drillLoop = null;
     this.ropeSync = null; // верёвка, которую прислал хост (у гостя)
     this.effects = new Effects(assets);
     this.sfx = audio;
@@ -186,6 +194,7 @@ export class Game {
     this.homingTarget = null;
     this.impact = null;
     this.hook = null;
+    this.drill = null;
     for (const w of this.worms) w.rope = null;
     this.turnFired = false;
     this.turnEnemyHit = false;
@@ -318,6 +327,7 @@ export class Game {
 
   stopLoops() {
     for (const p of this.projectiles) if (p.loop) { p.loop.stop(); p.loop = null; }
+    if (this.drillLoop) { this.drillLoop.stop(); this.drillLoop = null; }
   }
 
   dropCrate() {
@@ -733,8 +743,106 @@ export class Game {
   }
 
   dropRope() {
+    this.stopDrill();
     this.hook = null;
     if (this.active && this.active.rope) this.releaseRope(this.active);
+  }
+
+  // --- Лазерный бур -----------------------------------------------------
+
+  startDrill(w) {
+    this.drill = { worm: w, n: 0, stuck: 0, hit: new Set(), hx: w.x, hy: w.y };
+    w.grounded = false;
+    w.vx = w.vy = 0;
+    this.camera.manual = 0;
+    this.sfx.beep(1800, 0.08, 0.1, 'sawtooth', this.panAt(w.x));
+  }
+
+  stopDrill() {
+    const d = this.drill;
+    if (!d) return;
+    this.drill = null;
+    d.worm.grounded = false;
+    d.worm.vx = d.worm.vy = 0;
+  }
+
+  // Тик бура: прожигаем землю перед червяком и тащим его по тоннелю.
+  updateDrill() {
+    const d = this.drill;
+    if (!d) return;
+    const w = d.worm;
+    if (w.dead || w !== this.active || this.state !== 'aim' || d.n >= DRILL_TICKS) { this.stopDrill(); return; }
+    const v = w.aimVector();
+    d.hx = w.x + v.x * 9;
+    d.hy = w.y - 2 + v.y * 9;
+    // Проход чуть шире тела червяка (круг радиуса WORM_R вокруг x, y).
+    if (d.n % 3 === 0) this.carveOnly(w.x + v.x * 4, w.y + v.y * 4, DRILL_R);
+    d.n++;
+    const nx = w.x + v.x * DRILL_SPEED, ny = w.y + v.y * DRILL_SPEED;
+    if (!wormCollides(this.terrain, nx, ny)) { w.x = nx; w.y = ny; d.stuck = 0; }
+    else if (++d.stuck > 40) { this.stopDrill(); return; }
+    w.vx = w.vy = 0;
+    for (const o of this.worms) {
+      if (o === w || o.dead || d.hit.has(o) || Math.hypot(o.x - d.hx, o.y - d.hy) > DRILL_R + WORM_R) continue;
+      d.hit.add(o);
+      this.damageWorm(o, Math.round(15 * this.damageMult));
+      o.knock(v.x * 3, v.y * 3 - 2);
+      this.turnEnemyHit = this.turnEnemyHit || o.team !== w.team;
+    }
+  }
+
+  drillView() {
+    if (this.role === 'guest') return this.drillSync;
+    return this.drill ? { x: this.drill.hx, y: this.drill.hy } : null;
+  }
+
+  // Луч бура: от сопла до ближайшей земли, но не дальше 30 px.
+  laserBeam(w) {
+    const a = w.aimVector();
+    const sx = w.x + a.x * 14, sy = w.y - 2 + a.y * 14;
+    let len = 4;
+    while (len < 30 && !this.terrain.isSolid(sx + a.x * len, sy + a.y * len)) len += 2;
+    return { sx, sy, ex: sx + a.x * len, ey: sy + a.y * len, a };
+  }
+
+  // Звук и искры бура: у хоста и у гостя одинаково, в сеть не уходят.
+  drillFx() {
+    const v = this.drillView();
+    if (v && this.active && !this.active.dead) {
+      if (!this.drillLoop) this.drillLoop = audio.loop('drill', this.panAt(v.x));
+      else this.drillLoop.setPan(this.panAt(v.x));
+      const b = this.laserBeam(this.active);
+      if (this.time % 2 === 0) this.effects.sparks(b.ex, b.ey);
+    } else if (this.drillLoop) {
+      this.drillLoop.stop();
+      this.drillLoop = null;
+    }
+  }
+
+  drawDrill(ctx) {
+    const w = this.active;
+    if (!this.drillView() || !w || w.dead) return;
+    const { sx, sy, ex, ey } = this.laserBeam(w);
+    const flick = 0.75 + Math.sin(this.time * 0.9) * 0.25;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255,60,40,${0.35 * flick})`;
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,170,120,0.9)';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+    const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, 12 * flick);
+    g.addColorStop(0, 'rgba(255,255,220,0.95)');
+    g.addColorStop(0.4, 'rgba(255,140,60,0.6)');
+    g.addColorStop(1, 'rgba(255,40,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(ex, ey, 12 * flick, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   // Что рисовать: натянутая верёвка или летящий крюк (у гостя приходит с хоста).
@@ -968,10 +1076,12 @@ export class Game {
   updateWorld() {
     const t = this.terrain;
     this.updateHook();
+    this.updateDrill();
+    this.drillFx();
     for (const w of this.worms) {
       if (w.dead) continue;
       if (w.hurtTimer > 0) w.hurtTimer--;
-      const res = w.rope ? this.ropeTick(w) : w.update(t);
+      const res = w.rope ? this.ropeTick(w) : this.drill && this.drill.worm === w ? null : w.update(t);
       if (res) {
         if (res.impact > 2.5) {
           this.sfx.play('land', { vol: Math.min(1, res.impact / 6) });
@@ -1253,6 +1363,14 @@ export class Game {
       return;
     }
     if (this.hook) return;
+    // Бур: стрелки ведут луч, огонь или прыжок — выключить.
+    if (this.drill) {
+      if (a.up) w.aim = Math.min(Math.PI / 2, w.aim + AIM_SPEED);
+      if (a.down) w.aim = Math.max(-Math.PI / 2, w.aim - AIM_SPEED);
+      if (a.left !== a.right) w.dir = a.left ? -1 : 1;
+      if (a.firePressed || a.jump || a.backflip) this.stopDrill();
+      return;
+    }
     if (!this.charging) {
       if (a.left !== a.right) {
         const moved = w.walk(t, a.left ? -1 : 1);
@@ -1283,6 +1401,10 @@ export class Game {
     if (a.up) w.aim = Math.min(Math.PI / 2, w.aim + AIM_SPEED);
     if (a.down) w.aim = Math.max(-Math.PI / 2, w.aim - AIM_SPEED);
     const def = this.weapon;
+    if (def.drill) {
+      if (a.firePressed && w.grounded) this.startDrill(w);
+      return;
+    }
     if (def.rope) {
       // Крюк можно выпустить и в прыжке или падении.
       if (a.firePressed) this.shootHook(w);
@@ -1577,13 +1699,15 @@ export class Game {
     const active = this.active;
     const aiming = active && !active.dead && (this.state === 'aim') && active.grounded;
     this.drawRope(ctx);
+    const drilling = !!this.drillView();
     for (const w of this.worms) {
       if (w.dead) continue;
       let look = null;
       if (w === active && aiming) look = w.aimVector();
       w.draw(ctx, { look, flying: w.flying, hurt: w.hurtTimer > 0 });
     }
-    if (aiming && !this.weapon.target) drawHeldWeapon(ctx, active, this.weaponId);
+    if ((aiming || drilling) && !this.weapon.target) drawHeldWeapon(ctx, active, this.weaponId);
+    if (drilling) this.drawDrill(ctx);
 
     for (const p of this.projectiles) drawProjectile(ctx, p);
 

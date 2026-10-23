@@ -404,7 +404,7 @@ class AudioManager {
     const t = this.now;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(kind === 'fuse' ? 0.12 : 0.22, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(kind === 'fuse' ? 0.12 : kind === 'drill' ? 0.16 : 0.22, t + 0.08);
     const p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     if (p) { p.pan.value = clamp(pan, -1, 1); g.connect(p).connect(this.sfxBus); } else g.connect(this.sfxBus);
     const f = ctx.createBiquadFilter();
@@ -414,7 +414,22 @@ class AudioManager {
     src.loop = true;
     src.start(t);
     nodes.push(src);
-    if (kind === 'fuse') {
+    if (kind === 'drill') {
+      // Гудение лазера: пила с биением и шипение прожигаемой земли.
+      f.type = 'bandpass';
+      f.frequency.value = 2400;
+      f.Q.value = 1.4;
+      for (const [freq, vol] of [[180, 0.08], [184, 0.08], [360, 0.03]]) {
+        const o = ctx.createOscillator();
+        const og = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.value = freq;
+        og.gain.value = vol;
+        o.connect(og).connect(g);
+        o.start(t);
+        nodes.push(o);
+      }
+    } else if (kind === 'fuse') {
       f.type = 'highpass';
       f.frequency.value = 4000;
       // Потрескивание фитиля.
@@ -442,7 +457,7 @@ class AudioManager {
     src.connect(f).connect(g);
     return {
       setPan(v) { if (p) p.pan.value = clamp(v, -1, 1); },
-      setPitch(v) { f.frequency.value = (kind === 'fuse' ? 4000 : 900) * v; },
+      setPitch(v) { f.frequency.value = (kind === 'fuse' ? 4000 : kind === 'drill' ? 2400 : 900) * v; },
       stop: () => {
         const now = ctx.currentTime;
         g.gain.cancelScheduledValues(now);
