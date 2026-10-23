@@ -5,7 +5,7 @@
 // когда впервые зазвучит. Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = 'd2d4ea985203';
+const VERSION = '17f3dd46cc03';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
