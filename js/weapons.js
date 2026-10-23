@@ -19,6 +19,7 @@ export const WEAPONS = [
   { id: 'sheep', name: 'Овца', icon: 'sheep', ammo: 1, hint: 'Бежит вперёд. «Огонь» ещё раз — взрыв' },
   { id: 'airstrike', name: 'Авиаудар', icon: 'airstrike', ammo: 1, target: true, hint: 'Кликни по карте' },
   { id: 'donkey', name: 'Бетонный осёл', icon: 'donkey', ammo: 1, target: true, hint: 'Падает с неба и пробивает всё' },
+  { id: 'eagle', name: 'Самонаводящийся орёл', icon: 'eagle', ammo: 1, target: true, hint: 'Кликни цель — орёл облетит препятствия и спикирует' },
   { id: 'armageddon', name: 'Армагеддон', icon: 'armageddon', ammo: 1, hint: 'Метеоритный дождь по всей карте' },
   { id: 'quake', name: 'Землетрясение', icon: 'quake', ammo: 1, hint: 'Трясёт всех червяков на карте' },
   { id: 'rope', name: 'Ниндзя-верёвка', icon: 'rope', ammo: Infinity, rope: true, hint: 'Огонь — крюк, ←→ раскачка, ↑↓ длина, прыжок — отцепиться' },
@@ -28,7 +29,7 @@ export const WEAPONS = [
 ];
 
 // Что может выпасть из ящика с оружием (редкое — только отсюда).
-export const CRATE_WEAPONS = ['cluster', 'dynamite', 'airstrike', 'teleport', 'bat', 'mine', 'sheep', 'holy', 'banana',
+export const CRATE_WEAPONS = ['eagle', 'cluster', 'dynamite', 'airstrike', 'teleport', 'bat', 'mine', 'sheep', 'holy', 'banana',
   'molotov', 'homing', 'punch', 'donkey', 'armageddon', 'quake', 'donkey', 'sheep'];
 
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
@@ -50,6 +51,7 @@ export const PROJ = {
   sheep: { walker: true, explosion: [60, 70] },
   donkey: { impact: true, hitWorms: true, explosion: [52, 50], pierce: 6 },
   meteor: { impact: true, hitWorms: true, explosion: [38, 35], trail: true, fiery: true },
+  eagle: { flyer: true, explosion: [62, 100] },
 };
 
 export class Projectile {
@@ -76,6 +78,7 @@ export class Projectile {
 export function projectileTick(p, terrain, wind, worms) {
   const cfg = p.cfg;
   if (cfg.walker) return walkerTick(p, terrain, worms);
+  if (cfg.flyer) return eagleTick(p, terrain, worms);
   p.age++;
   if (p.fuse > 0) {
     p.fuse--;
@@ -200,6 +203,212 @@ export function airstrikeMissiles(tx, dir) {
 // Точка вылета снаряда из оружия червяка.
 export function muzzlePoint(worm, v) {
   return { x: worm.x + v.x * 12, y: worm.y - 2 + v.y * 12 };
+}
+
+// --- Самонаводящийся орёл ---------------------------------------------------
+// Летит с постоянной скоростью, без ветра и гравитации. Смотрит вперёд и, если
+// путь к цели закрыт землёй, ищет ближайший свободный курс, чтобы облететь.
+
+const EAGLE_SPEED = 3.8;
+const EAGLE_TURN = 0.22;
+const EAGLE_LIFE = 20 * 60;
+
+function pathClear(terrain, x, y, ang, dist) {
+  const cx = Math.cos(ang), cy = Math.sin(ang);
+  for (let d = 6; d <= dist; d += 5) {
+    const px = x + cx * d, py = y + cy * d;
+    // Проверяем и по бокам, чтобы крылья не цепляли землю.
+    if (terrain.isSolid(px, py) || terrain.isSolid(px - cy * 5, py + cx * 5) || terrain.isSolid(px + cy * 5, py - cx * 5)) return false;
+  }
+  return true;
+}
+
+function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+// Маршрут по сетке 16×16 px: A* по свободным клеткам. Сначала с запасом в клетку
+// от земли (чтобы крылья не задевали), если так не пройти — впритирку.
+const CELL = 16;
+const GRID_Y0 = -320;
+
+function solidGrid(terrain, cols, rows) {
+  const g = new Uint8Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x0 = c * CELL, y0 = GRID_Y0 + r * CELL;
+      let hit = 0;
+      for (let yy = 2; yy < CELL && !hit; yy += 4) for (let xx = 2; xx < CELL; xx += 4) if (terrain.isSolid(x0 + xx, y0 + yy)) { hit = 1; break; }
+      g[r * cols + c] = hit;
+    }
+  }
+  return g;
+}
+
+function dilate(g, cols, rows) {
+  const d = new Uint8Array(g);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    if (!g[r * cols + c]) continue;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) d[rr * cols + cc] = 1;
+    }
+  }
+  return d;
+}
+
+function astar(g, cols, rows, s, t) {
+  const n = cols * rows;
+  const cost = new Float32Array(n).fill(Infinity);
+  const from = new Int32Array(n).fill(-1);
+  const heap = [];
+  const tc = t % cols, tr = (t / cols) | 0;
+  const h = (i) => { const dx = Math.abs(i % cols - tc), dy = Math.abs(((i / cols) | 0) - tr); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
+  const push = (i, f) => {
+    heap.push([f, i]);
+    let k = heap.length - 1;
+    while (k > 0) { const pk = (k - 1) >> 1; if (heap[pk][0] <= heap[k][0]) break; [heap[pk], heap[k]] = [heap[k], heap[pk]]; k = pk; }
+  };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let k = 0;
+      for (;;) {
+        const a = 2 * k + 1, b = a + 1;
+        let m = k;
+        if (a < heap.length && heap[a][0] < heap[m][0]) m = a;
+        if (b < heap.length && heap[b][0] < heap[m][0]) m = b;
+        if (m === k) break;
+        [heap[m], heap[k]] = [heap[k], heap[m]];
+        k = m;
+      }
+    }
+    return top;
+  };
+  cost[s] = 0;
+  push(s, h(s));
+  let steps = 0;
+  while (heap.length && steps++ < 40000) {
+    const [, i] = pop();
+    if (i === t) {
+      const path = [];
+      for (let k = t; k !== -1; k = from[k]) path.push(k);
+      return path.reverse();
+    }
+    const c = i % cols, r = (i / cols) | 0;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const rr = r + dr, cc = c + dc;
+      if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+      const k = rr * cols + cc;
+      if (g[k] && k !== t) continue;
+      // По диагонали не срезаем углы земли.
+      if (dr && dc && (g[r * cols + cc] || g[rr * cols + c])) continue;
+      const nc = cost[i] + (dr && dc ? 1.414 : 1);
+      if (nc < cost[k]) { cost[k] = nc; from[k] = i; push(k, nc + h(k)); }
+    }
+  }
+  return null;
+}
+
+export function planEaglePath(terrain, sx, sy, tx, ty) {
+  const cols = Math.ceil(WORLD_W / CELL), rows = Math.ceil((WATER.y - GRID_Y0) / CELL);
+  const cell = (x, y) => {
+    const c = Math.max(0, Math.min(cols - 1, Math.floor(x / CELL)));
+    const r = Math.max(0, Math.min(rows - 1, Math.floor((y - GRID_Y0) / CELL)));
+    return r * cols + c;
+  };
+  const base = solidGrid(terrain, cols, rows);
+  const s = cell(sx, sy), t = cell(tx, ty);
+  // Старт часто у самой земли: соседние клетки считаем свободными.
+  const sc = s % cols, sr = (s / cols) | 0;
+  for (const g of [dilate(base, cols, rows), base]) {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = sr + dr, cc = sc + dc;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && !terrain.isSolid(cc * CELL + CELL / 2, GRID_Y0 + rr * CELL + CELL / 2)) g[rr * cols + cc] = 0;
+    }
+    g[s] = 0;
+    const path = astar(g, cols, rows, s, t);
+    if (path) return path.map((k) => ({ x: (k % cols) * CELL + CELL / 2, y: GRID_Y0 + ((k / cols) | 0) * CELL + CELL / 2 }));
+  }
+  return null;
+}
+
+// Свободна ли полоса шириной с орла между двумя точками.
+function lineFree(terrain, x0, y0, x1, y1, half = 5) {
+  const len = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(len / 4);
+  const nx = -(y1 - y0) / (len || 1) * half, ny = (x1 - x0) / (len || 1) * half;
+  for (let i = 1; i <= n; i++) {
+    const k = i / n, x = x0 + (x1 - x0) * k, y = y0 + (y1 - y0) * k;
+    if (terrain.isSolid(x, y) || terrain.isSolid(x + nx, y + ny) || terrain.isSolid(x - nx, y - ny)) return false;
+  }
+  return true;
+}
+
+export function eagleTick(p, terrain, worms) {
+  p.age++;
+  if (p.age > EAGLE_LIFE) return 'explode';
+  const t = p.target || { x: p.x, y: p.y + 100 };
+  const dist = Math.hypot(t.x - p.x, t.y - p.y);
+  if (dist < 14) return 'explode';
+  let heading = p.rot;
+  let goal;
+  if (p.age < 24 && pathClear(terrain, p.x, p.y, heading, 18)) {
+    // Взлёт с руки червяка, если сверху не нависает земля.
+    goal = -Math.PI / 2 + Math.sign(Math.cos(heading) || 1) * 0.5;
+  } else if (dist < 60 && lineFree(terrain, p.x, p.y, t.x, t.y, 2)) {
+    goal = Math.atan2(t.y - p.y, t.x - p.x);
+  } else {
+    // Маршрут: строим при первом наведении, раз в полторы секунды и если впереди земля.
+    const blocked = !pathClear(terrain, p.x, p.y, heading, 30);
+    if (!p.path || blocked || p.age - p.planned > 90) {
+      p.path = planEaglePath(terrain, p.x, p.y, t.x, t.y);
+      p.planned = p.age;
+      p.wp = 0;
+    }
+    if (p.path) {
+      while (p.wp < p.path.length - 1 && Math.hypot(p.path[p.wp].x - p.x, p.path[p.wp].y - p.y) < 20) p.wp++;
+      // Срезаем путь: держим курс на самую дальнюю видимую точку маршрута.
+      let aim = p.path[p.wp];
+      for (let k = Math.min(p.path.length - 1, p.wp + 6); k > p.wp; k--) {
+        if (lineFree(terrain, p.x, p.y, p.path[k].x, p.path[k].y)) { aim = p.path[k]; break; }
+      }
+      goal = Math.atan2(aim.y - p.y, aim.x - p.x);
+    } else {
+      // Маршрута нет: набираем высоту и пробуем снова.
+      goal = -Math.PI / 2;
+      p.planned = p.age - 75;
+    }
+  }
+  // У цели и перед стеной сбрасываем скорость и поворачиваем резче:
+  // иначе орёл кружит вокруг цели или не успевает отвернуть от земли.
+  const near = dist < 60;
+  const danger = !pathClear(terrain, p.x, p.y, heading, 18);
+  const turn = near || danger ? 0.45 : EAGLE_TURN;
+  heading += Math.max(-turn, Math.min(turn, angleDiff(goal, heading)));
+  p.rot = heading;
+  const sp = near ? 2.6 : danger ? 1.8 : EAGLE_SPEED;
+  p.vx = Math.cos(heading) * sp;
+  p.vy = Math.sin(heading) * sp;
+  for (let i = 0; i < 3; i++) {
+    const nx = p.x + p.vx / 3, ny = p.y + p.vy / 3;
+    if (terrain.isSolid(nx, ny)) { p.x = nx; p.y = ny; return 'explode'; }
+    // По дороге орёл пролетает над червяками, взрывается только у цели.
+    if (dist > 40) { p.x = nx; p.y = ny; continue; }
+    for (const w of worms) {
+      if (w.dead || (w === p.owner && p.age < 40)) continue;
+      const wx = w.x - nx, wy = w.y - 3 - ny;
+      if (wx * wx + wy * wy < 100) { p.x = nx; p.y = ny; return 'explode'; }
+    }
+    p.x = nx;
+    p.y = ny;
+  }
+  if (p.y > WATER.y + 6) return 'water';
+  return null;
 }
 
 // Траектория для ИИ: где произойдёт взрыв (или null — улетит в воду).
@@ -353,6 +562,46 @@ export function drawProjectile(ctx, p) {
       ctx.fillStyle = '#55555e';
       ctx.fillRect(15, -15, 2, 2);
       ctx.fillRect(-18, -6, 4, 2);
+      break;
+    }
+    case 'eagle': {
+      // Орёл с бомбой в когтях; машет крыльями, смотрит по ходу полёта.
+      const left = Math.cos(p.rot) < 0;
+      ctx.rotate(left ? p.rot + Math.PI : p.rot);
+      if (left) ctx.scale(-1, 1);
+      const flap = Math.sin(performance.now() / 55);
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#2a1a10';
+      ctx.lineWidth = 1;
+      // Бомба в когтях.
+      ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(-1, 3); ctx.lineTo(-1, 7); ctx.stroke();
+      ctx.fillStyle = '#2b2b30';
+      ctx.beginPath(); ctx.arc(-1, 9.5, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ff4a30';
+      ctx.beginPath(); ctx.arc(-1, 9.5, 1.1, 0, Math.PI * 2); ctx.fill();
+      // Дальнее крыло.
+      ctx.fillStyle = '#5a3a1e';
+      ctx.beginPath(); ctx.moveTo(-3, -1); ctx.quadraticCurveTo(-8, -10 * flap - 2, -15, -14 * flap); ctx.lineTo(-6, 1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#2a1a10'; ctx.stroke();
+      // Хвост.
+      ctx.fillStyle = '#f2ece0';
+      ctx.beginPath(); ctx.moveTo(-8, -1); ctx.lineTo(-15, -3); ctx.lineTo(-15, 3); ctx.lineTo(-8, 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Тело.
+      ctx.fillStyle = '#7a4e26';
+      ctx.beginPath(); ctx.ellipse(-1, 0.5, 8.5, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // Белая голова, жёлтый клюв, сердитый глаз.
+      ctx.fillStyle = '#fbf7ee';
+      ctx.beginPath(); ctx.arc(8, -2, 3.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffc21a';
+      ctx.beginPath(); ctx.moveTo(10.8, -3.2); ctx.quadraticCurveTo(15.5, -2.5, 14.5, 0.8); ctx.lineTo(10.8, -0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(9.2, -2.8, 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(7.6, -4.6); ctx.lineTo(10.6, -3.6); ctx.stroke();
+      // Ближнее крыло.
+      ctx.fillStyle = '#8f5e30';
+      ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(2, -1); ctx.quadraticCurveTo(-2, -12 * flap - 3, -10, -17 * flap - 1); ctx.lineTo(-11, -15 * flap); ctx.lineTo(-3, 1.5); ctx.closePath(); ctx.fill(); ctx.stroke();
       break;
     }
     case 'meteor': {

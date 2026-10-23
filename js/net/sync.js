@@ -10,7 +10,7 @@ import { updateScenery } from '../scenery.js';
 import { haptic } from '../quality.js';
 
 const KINDS = ['rocket', 'grenade', 'cluster', 'bomblet', 'missile', 'dynamite', 'homing', 'banana', 'bananette',
-  'holy', 'molotov', 'flame', 'sheep', 'donkey', 'meteor'];
+  'holy', 'molotov', 'flame', 'sheep', 'donkey', 'meteor', 'eagle'];
 const ITEM_TYPES = ['crate', 'mine', 'grave', 'barrel'];
 const LOOP_OF = { rocket: 'rocket', dynamite: 'fuse' };
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -265,7 +265,8 @@ export function guestTick(game, input) {
   for (const p of game.projectiles) {
     const dt = game.time - p.st;
     const px = p.resting ? p.sx : p.sx + p.vx * dt;
-    const py = p.resting ? p.sy : p.sy + p.vy * dt + 0.5 * PHYS.g * dt * dt;
+    const py = p.resting ? p.sy : p.sy + p.vy * dt + (p.cfg.flyer ? 0 : 0.5 * PHYS.g * dt * dt);
+    if (p.cfg.flyer) p.rot = Math.atan2(p.vy, p.vx);
     p.x += (px - p.x) * 0.5;
     p.y += (Math.min(py, WATER.y + 10) - p.y) * 0.5;
     p.spin += p.vx * 0.12;

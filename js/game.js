@@ -535,6 +535,17 @@ export class Game {
       this.useAmmo(id);
       this.enterRetreat();
       this.camera.manual = 0;
+    } else if (id === 'eagle') {
+      const p = new Projectile('eagle', w.x, w.y - 12, 0, -3, w);
+      p.rot = -Math.PI / 2 + w.dir * 0.5;
+      p.target = { x: pt.x, y: pt.y };
+      this.addProjectile(p);
+      this.sfx.play('eagle', { vol: 1, pan: this.panAt(w.x) });
+      this.say(w, 'fire', 0.6);
+      this.turnFired = true;
+      this.useAmmo(id);
+      this.enterRetreat();
+      this.camera.manual = 0;
     } else if (id === 'donkey') {
       const p = new Projectile('donkey', pt.x, -120, 0, 3, null);
       p.pierceLeft = p.cfg.pierce;

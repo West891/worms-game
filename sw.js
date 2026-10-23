@@ -5,7 +5,7 @@
 // когда впервые зазвучит. Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = '17f3dd46cc03';
+const VERSION = '584b31cf442b';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
@@ -53,6 +53,7 @@ const PRECACHE = [
   "assets/icons/donkey.svg",
   "assets/icons/drill.svg",
   "assets/icons/dynamite.svg",
+  "assets/icons/eagle.svg",
   "assets/icons/grenade.svg",
   "assets/icons/health.svg",
   "assets/icons/holy.svg",
@@ -87,6 +88,7 @@ const PRECACHE = [
   "assets/sfx/bats.mp3",
   "assets/sfx/break.mp3",
   "assets/sfx/click.mp3",
+  "assets/sfx/eagle.mp3",
   "assets/sfx/explosion.mp3",
   "assets/sfx/fire.mp3",
   "assets/sfx/hallelujah.mp3",
@@ -280,7 +282,9 @@ self.addEventListener('fetch', (e) => {
 async function networkFirst(req) {
   const cache = await caches.open(CORE);
   try {
-    const res = await withTimeout(fetch(req), 4000);
+    // no-cache: сверяемся с сервером, а не берём копию из HTTP-кэша браузера
+    // (GitHub Pages разрешает ей жить 10 минут, и обновление запаздывало).
+    const res = await withTimeout(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }), 4000);
     if (res.ok) cache.put(req, res.clone());
     return res;
   } catch (err) {

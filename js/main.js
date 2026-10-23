@@ -164,6 +164,7 @@ function toMenu() {
   playMode = 'local';
   ui.hideHud();
   showScreen('#menu');
+  reloadIfUpdated();
 }
 
 // В сетевой игре пауза только показывает меню: соперник продолжает играть.
@@ -488,6 +489,14 @@ window.__worms = { get game() { return game; }, get online() { return online; },
 
 // --- Установка как приложение (PWA) ----------------------------------
 
+let updateReady = false;
+
+function reloadIfUpdated() {
+  if (!updateReady || game || (online && (online.mode || online.channel || online.session))) return;
+  updateReady = false;
+  location.reload();
+}
+
 const installedApp = () => navigator.standalone === true ||
   !!(window.matchMedia && window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches);
 
@@ -496,7 +505,19 @@ function setupInstall() {
   let framed = true;
   try { framed = window.top !== window; } catch (e) { /* чужая рамка */ }
   if (framed || !('serviceWorker' in navigator) || !window.isSecureContext) return;
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Автообновление: вышла новая версия — сервис-воркер сменится, и страница
+  // перезагрузится, как только игрок окажется в меню (не посреди партии).
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    updateReady = true;
+    reloadIfUpdated();
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    const check = () => reg.update().catch(() => {});
+    setInterval(check, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }).catch(() => {});
   if (installedApp()) return;
 
   const btn = $('#btn-install');

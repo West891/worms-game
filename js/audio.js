@@ -4,7 +4,7 @@
 const SOUNDS = [
   'explosion', 'fire', 'shotgun', 'select', 'jump', 'backflip', 'land', 'hurt', 'throw',
   'walk', 'pickup', 'break', 'impact', 'click', 'tick', 'teleport',
-  'baa', 'heehaw', 'hallelujah', 'meteor', 'bats', 'quake', 'liftoff',
+  'baa', 'heehaw', 'hallelujah', 'meteor', 'bats', 'quake', 'liftoff', 'eagle',
 ];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

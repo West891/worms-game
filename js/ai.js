@@ -96,6 +96,15 @@ export function* planTurn(game, me) {
     yield;
   }
 
+  // Орёл сам облетит препятствия: оцениваем взрыв прямо у цели.
+  if (has('eagle')) {
+    const [r, dmg] = PROJ.eagle.explosion;
+    for (const e of enemies) {
+      if (Math.hypot(e.x - me.x, e.y - me.y) < r + 40) continue;
+      consider({ weapon: 'eagle', dir: me.dir, target: { x: e.x, y: e.y - 4 }, score: scoreBlast(worms, me, e.x, e.y - 4, r, dmg) - 25 });
+    }
+  }
+
   // Баллистика: грубый перебор, затем уточнение вокруг лучших вариантов.
   // [оружие, снаряд, таймер (с), множитель очков, штраф за редкий боезапас, взрыв для оценки]
   const BALLISTIC = [
