@@ -1,13 +1,14 @@
 import { WATER } from './config.js';
+import { t } from './i18n.js';
 import { WEAPON_BY_ID, PROJ, simulateShot, airstrikeMissiles, muzzlePoint } from './weapons.js';
 
 // Разброс прицела по уровням сложности.
 export const DIFFICULTY = {
-  easy: { name: 'Новичок', angle: 0.11, power: 0.09, think: 1.4 },
-  normal: { name: 'Боец', angle: 0.045, power: 0.035, think: 1.0 },
-  hard: { name: 'Снайпер', angle: 0.012, power: 0.01, think: 0.7 },
+  easy: { name: t('Новичок'), angle: 0.11, power: 0.09, think: 1.4 },
+  normal: { name: t('Боец'), angle: 0.045, power: 0.035, think: 1.0 },
+  hard: { name: t('Снайпер'), angle: 0.012, power: 0.01, think: 0.7 },
   // Бот, который в онлайне играет вместо живого соперника: думает дольше и мажет чаще.
-  human: { name: 'Игрок', angle: 0.07, power: 0.05, think: 2, jitter: 3.5 },
+  human: { name: t('Игрок'), angle: 0.07, power: 0.05, think: 2, jitter: 3.5 },
 };
 
 function blastDamage(w, x, y, r, dmg) {

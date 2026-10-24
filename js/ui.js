@@ -1,4 +1,5 @@
 import { WEAPONS } from './weapons.js';
+import { t as tr } from './i18n.js';
 
 const $ = (sel) => document.querySelector(sel);
 // Имена команд и червяков в сетевой игре приходят от других игроков.
@@ -52,7 +53,7 @@ export class UI {
       const mine = game.role !== 'local' || t.online
         ? t.worms.some((w) => w.owner === 'local' || w.owner === game.role)
         : false;
-      const tag = t.ai && !t.disguise ? ' <small>ИИ</small>' : mine ? ' <small>вы</small>' : '';
+      const tag = t.ai && !t.disguise ? ` <small>${tr('ИИ')}</small>` : mine ? ` <small>${tr('вы')}</small>` : '';
       row.innerHTML = `<span class="tname" style="color:${safeColor(t.color)}">${t.online && !(t.ai && !t.disguise) ? '<i class="dot"></i>' : ''}${esc(t.name)}${tag}</span>
         <span class="tbar"><span class="tfill" style="background:${safeColor(t.color)}"></span></span>`;
       box.appendChild(row);
@@ -89,11 +90,11 @@ export class UI {
     }
     const def = game.weapon;
     let info = def.name;
-    if (def.needsTarget) info += game.homingTarget ? ' · цель выбрана' : ' · выберите цель';
-    if (def.id === 'shotgun' && game.shotgunShots > 0) info += ' · ещё выстрел';
+    if (def.needsTarget) info += tr(game.homingTarget ? ' · цель выбрана' : ' · выберите цель');
+    if (def.id === 'shotgun' && game.shotgunShots > 0) info += tr(' · ещё выстрел');
     // Таймер гранаты: кнопки 1–5 (на телефоне цифр на клавиатуре нет).
     const fuse = def.fuse
-      ? `<span class="fuse">${[1, 2, 3, 4, 5].map((n) => `<button data-fuse="${n}" class="${n === game.fuseSec ? 'on' : ''}">${n}</button>`).join('')} с</span>`
+      ? `<span class="fuse">${[1, 2, 3, 4, 5].map((n) => `<button data-fuse="${n}" class="${n === game.fuseSec ? 'on' : ''}">${n}</button>`).join('')} ${tr('с')}</span>`
       : `<span class="hint">${def.hint}</span>`;
     $('#weapon-info').innerHTML = `<b>${info}</b>${fuse}`;
     $('#weapon-toggle-icon').src = `assets/icons/${def.icon}.svg`;
@@ -152,16 +153,16 @@ export class UI {
   showGameOver(team) {
     const el = $('#gameover');
     $('#go-title').innerHTML = team
-      ? `Победа: <span style="color:${safeColor(team.color)}">${esc(team.name)}</span>!`
-      : 'Ничья — никто не выжил!';
+      ? tr('Победа: {team}!', { team: `<span style="color:${safeColor(team.color)}">${esc(team.name)}</span>` })
+      : tr('Ничья — никто не выжил!');
     const survivors = team ? team.worms.filter((w) => !w.dead).map((w) => `${w.name} (${w.hp})`).join(', ') : '';
-    $('#go-sub').textContent = survivors ? `Выжили: ${survivors}` : '';
+    $('#go-sub').textContent = survivors ? tr('Выжили: {list}', { list: survivors }) : '';
     setTimeout(() => el.classList.remove('hidden'), 1200);
   }
 
   showDisconnected() {
-    $('#go-title').textContent = 'Соперник отключился';
-    $('#go-sub').textContent = 'Партия прервана.';
+    $('#go-title').textContent = tr('Соперник отключился');
+    $('#go-sub').textContent = tr('Партия прервана.');
     $('#gameover').classList.remove('hidden');
   }
 

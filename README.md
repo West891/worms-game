@@ -11,5 +11,10 @@
 Игру можно установить как приложение: кнопка «📲 Установить» в углу меню, а на
 iPhone — «Поделиться» → «На экран „Домой“». После первого захода она работает без интернета.
 
+Есть английская версия (Wormies Online): язык выбирается по браузеру или в настройках.
+
+The game is also available in English (Wormies Online): it follows your browser language,
+or pick it in the settings.
+
 Это готовая к публикации копия игры. Запуск локально: `python3 -m http.server 8000` в
 этой папке, затем http://localhost:8000.

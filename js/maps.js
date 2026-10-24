@@ -1,9 +1,11 @@
 // Карты: палитра земли, небо, декорации, погода, гравитация, звук.
 // Декорации рисуются прямо в ландшафт, поэтому их тоже можно взорвать.
 
+import { t } from './i18n.js';
+
 export const MAPS = {
   meadow: {
-    name: 'Луг',
+    name: t('Луг'),
     top: [126, 204, 74], second: [84, 160, 52],
     dirt: [150, 101, 60], dirtDark: [109, 70, 42], rock: [128, 118, 108],
     rim: 'rgba(52, 30, 16, 0.9)',
@@ -14,7 +16,7 @@ export const MAPS = {
     weather: 'petals', ambience: 'meadow', music: 'day',
   },
   desert: {
-    name: 'Пустыня',
+    name: t('Пустыня'),
     top: [247, 218, 146], second: [230, 188, 112],
     dirt: [214, 160, 94], dirtDark: [182, 128, 72], rock: [160, 108, 70], strata: true,
     rim: 'rgba(92, 52, 24, 0.9)',
@@ -25,7 +27,7 @@ export const MAPS = {
     weather: 'dust', ambience: 'desert', music: 'day',
   },
   snow: {
-    name: 'Снег',
+    name: t('Снег'),
     top: [250, 252, 255], second: [205, 224, 242],
     dirt: [120, 134, 164], dirtDark: [88, 100, 130], rock: [66, 76, 102],
     rim: 'rgba(36, 42, 66, 0.9)',
@@ -36,7 +38,7 @@ export const MAPS = {
     weather: 'snow', ambience: 'snow', music: 'day',
   },
   halloween: {
-    name: 'Ночь Хэллоуина', night: true,
+    name: t('Ночь Хэллоуина'), night: true,
     sky: ['#12061f', '#3a1240', '#7a2e3a'],
     moon: { color: '#ffb547', glow: 'rgba(255,150,40,0.35)', r: 64, x: 0.78, y: 0.2 },
     stars: 120,
@@ -51,7 +53,7 @@ export const MAPS = {
     weather: 'bats', ambience: 'halloween', music: 'halloween',
   },
   cemetery: {
-    name: 'Ночное кладбище', night: true,
+    name: t('Ночное кладбище'), night: true,
     sky: ['#03070f', '#0f1d2e', '#24384a'],
     moon: { color: '#e9f0f7', glow: 'rgba(200,220,255,0.25)', r: 46, x: 0.25, y: 0.16 },
     stars: 90,
@@ -67,7 +69,7 @@ export const MAPS = {
     weather: 'wisps', ambience: 'cemetery', music: 'cemetery',
   },
   spaceport: {
-    name: 'Космодром', night: true, gravity: 0.13,
+    name: t('Космодром'), night: true, gravity: 0.13,
     sky: ['#010008', '#0a0a26', '#1f1748'],
     planet: { color: '#d07a5a', ring: 'rgba(240,200,170,0.55)', r: 80, x: 0.2, y: 0.22 },
     stars: 220,

@@ -6,6 +6,7 @@ import { UI } from './ui.js';
 import { Game } from './game.js';
 import { Online, randomNick } from './net/online.js';
 import { QUALITY, DEVICE, setQualityMode, trackFrame, isTouchDevice } from './quality.js';
+import { t, LANG, setLang, translateDom } from './i18n.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#game');
@@ -41,18 +42,18 @@ window.addEventListener('orientationchange', () => setTimeout(() => { dpr = resi
 function buildTeamRows() {
   const box = $('#menu-teams');
   box.innerHTML = '';
-  TEAM_DEFS.forEach((t, i) => {
+  TEAM_DEFS.forEach((def, i) => {
     const row = document.createElement('div');
     row.className = 'team-row';
     row.innerHTML = `
       <label class="team-toggle">
         <input type="checkbox" data-team="${i}" ${i < 2 ? 'checked' : ''} ${i < 2 ? 'disabled' : ''}>
-        <span class="swatch" style="background:${t.color}"></span>
-        <span class="team-name">${t.name}</span>
+        <span class="swatch" style="background:${def.color}"></span>
+        <span class="team-name">${def.name}</span>
       </label>
       <select data-control="${i}">
-        <option value="human">Игрок</option>
-        <option value="ai" ${i > 0 ? 'selected' : ''}>Компьютер</option>
+        <option value="human">${t('Игрок')}</option>
+        <option value="ai" ${i > 0 ? 'selected' : ''}>${t('Компьютер')}</option>
       </select>`;
     box.appendChild(row);
   });
@@ -84,7 +85,7 @@ function readSettings() {
 function saveSettings(s) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      teams: s.teams.map((t) => ({ name: t.name, ai: t.ai })),
+      teams: s.teams.map((tm) => ({ idx: TEAM_DEFS.findIndex((d) => d.color === tm.color), ai: tm.ai })),
       wormsPerTeam: s.wormsPerTeam, difficulty: s.difficulty, theme: s.theme, turnTime: s.turnTime, mines: s.mines,
       voices: s.voices, nick: s.nick, music: s.music, barrels: s.barrels, suddenDeath: s.suddenDeath, quality: s.quality,
       liveBg: s.liveBg,
@@ -97,7 +98,7 @@ function restoreSettings() {
   try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { s = null; }
   if (!s) return;
   TEAM_DEFS.forEach((t, i) => {
-    const saved = s.teams && s.teams.find((x) => x.name === t.name);
+    const saved = s.teams && s.teams.find((x) => x.idx === i || x.name === t.name);
     if (i >= 2) $(`[data-team="${i}"]`).checked = !!saved;
     if (saved) $(`[data-control="${i}"]`).value = saved.ai ? 'ai' : 'human';
   });
@@ -131,12 +132,12 @@ function startGame(settings, mode = 'local', afterCreate = null) {
   requestWakeLock();
   if (touch && window.innerHeight > window.innerWidth && window.innerWidth < 600 && !portraitHintShown) {
     portraitHintShown = true;
-    setTimeout(() => ui.toast('Поверните телефон — так удобнее играть'), 2500);
+    setTimeout(() => ui.toast(t('Поверните телефон — так удобнее играть')), 2500);
   }
   if (game) game.stopLoops();
   if (mode === 'local') lastSettings = settings;
   playMode = mode;
-  $('#btn-again').textContent = mode === 'local' ? 'Ещё раз' : 'Найти нового соперника';
+  $('#btn-again').textContent = t(mode === 'local' ? 'Ещё раз' : 'Найти нового соперника');
   $('#btn-again').classList.toggle('hidden', mode === 'friend');
   showScreen('#generating');
   // Даём браузеру отрисовать надпись перед генерацией ландшафта.
@@ -201,7 +202,7 @@ const onlineHooks = {
     if (role === 'host') {
       const coop = game.teams.some((t) => t.owner === 'mixed');
       game.convertToAi('guest');
-      ui.toast(coop ? 'Друг отключился — его червяками управляет компьютер' : 'Соперник отключился — за него доигрывает компьютер');
+      ui.toast(t(coop ? 'Друг отключился — его червяками управляет компьютер' : 'Соперник отключился — за него доигрывает компьютер'));
     } else {
       game.over = true;
       game.stopLoops();
@@ -217,7 +218,7 @@ function setMuted(m) {
   audio.setMuted(m);
   for (const b of [$('#btn-mute'), $('#btn-menu-mute')]) {
     b.textContent = m ? '🔇' : '🔊';
-    b.setAttribute('aria-label', m ? 'Включить звук' : 'Выключить звук');
+    b.setAttribute('aria-label', t(m ? 'Включить звук' : 'Выключить звук'));
   }
   try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch (e) { /* без сохранения */ }
 }
@@ -273,6 +274,13 @@ function drawMenuBackground() {
 // --- Запуск -----------------------------------------------------------
 
 async function boot() {
+  translateDom();
+  if (LANG === 'en') {
+    for (const img of document.querySelectorAll('.logo-img')) {
+      img.src = 'assets/img/logo-en.webp';
+      img.srcset = 'assets/img/logo-en-small.webp 500w, assets/img/logo-en.webp 1000w';
+    }
+  }
   buildTeamRows();
   restoreSettings();
   requestAnimationFrame(frame);
@@ -284,7 +292,7 @@ async function boot() {
     await audioReady;
     bar.style.width = '100%';
   } catch (e) {
-    $('#loading-text').textContent = 'Ошибка загрузки: ' + e.message + '. Запустите игру через локальный сервер (см. README).';
+    $('#loading-text').textContent = t('Ошибка загрузки: {msg}. Запустите игру через локальный сервер (см. README).', { msg: e.message });
     return;
   }
   ui = new UI();
@@ -352,6 +360,12 @@ async function boot() {
     if (e.code !== 'KeyM' || game || e.repeat || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     toggleMute();
   });
+  $('#opt-lang').value = LANG;
+  $('#opt-lang').addEventListener('change', () => {
+    saveSettings(readSettings());
+    setLang($('#opt-lang').value);
+    location.reload();
+  });
   $('#opt-livebg').addEventListener('change', () => { saveSettings(readSettings()); updateLiveBackground(); });
   audio.musicOn = readSettings().music;
   $('#opt-music').addEventListener('change', () => {
@@ -394,22 +408,22 @@ async function boot() {
   $('#net-cancel').addEventListener('click', () => { online.cancel(); showScreen('#menu'); });
   $('#net-copy').addEventListener('click', () => {
     const code = $('#net-code').textContent;
-    const done = () => { $('#net-copy').textContent = 'Скопировано'; setTimeout(() => { $('#net-copy').textContent = 'Скопировать'; }, 1500); };
+    const done = () => { $('#net-copy').textContent = t('Скопировано'); setTimeout(() => { $('#net-copy').textContent = t('Скопировать'); }, 1500); };
     if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => {});
   });
-  const showNetKind = (t) => {
-    const kind = t ? t.kind : null;
-    $('#net-kind').textContent = t && t.fallback
-      ? 'Нет связи с сервером — похоже, нет интернета. Играть с компьютером можно на вкладке «На одном устройстве».'
-      : {
+  const showNetKind = (tr) => {
+    const kind = tr ? tr.kind : null;
+    $('#net-kind').textContent = tr && tr.fallback
+      ? t('Нет связи с сервером — похоже, нет интернета. Играть с компьютером можно на вкладке «На одном устройстве».')
+      : t({
         claude: 'Играть могут все, кому открыт доступ к этой игре в claude.ai.',
         supabase: 'Игра через интернет.',
         local: 'Сервер для игры через интернет не настроен: соперники ищутся только в других вкладках этого браузера.',
-      }[kind] || 'Сетевая игра здесь недоступна.';
+      }[kind] || 'Сетевая игра здесь недоступна.');
   };
   online.ensure().then(showNetKind);
   window.addEventListener('online', () => {
-    $('#net-kind').textContent = 'Проверяем сеть…';
+    $('#net-kind').textContent = t('Проверяем сеть…');
     online.ensure().then(showNetKind);
   });
   const hash = (location.hash || '').slice(1);

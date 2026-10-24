@@ -1,7 +1,8 @@
 import { rand, pick } from './rng.js';
 import { QUALITY } from './quality.js';
+import { BOOMS } from './i18n.js';
 
-const BOOM_WORDS = ['БУМ!', 'БАХ!', 'БАБАХ!', 'ПАФ!', 'БДЫЩ!'];
+const BOOM_WORDS = BOOMS;
 
 export class Effects {
   constructor(assets) {

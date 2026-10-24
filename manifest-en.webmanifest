@@ -1,0 +1,57 @@
+{
+  "id": "./",
+  "name": "Wormies Online",
+  "short_name": "Wormies",
+  "description": "A turn-based artillery game: destructible terrain, wind, bazookas, sheep and concrete donkeys.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#170d26",
+  "theme_color": "#170d26",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "assets/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/pwa/screenshot-wide.jpg",
+      "sizes": "1280x719",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Wormies Online"
+    },
+    {
+      "src": "assets/pwa/screenshot-tall.jpg",
+      "sizes": "576x1026",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Wormies Online"
+    }
+  ]
+}

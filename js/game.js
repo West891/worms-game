@@ -16,6 +16,7 @@ import { recorder, buildSetup, guestTick } from './net/sync.js';
 import { buildScenery, drawSky, updateScenery, drawWeather, drawLights, drawFog } from './scenery.js';
 import { MAPS, MAP_KEYS } from './maps.js';
 import { haptic } from './quality.js';
+import { t as tr } from './i18n.js';
 
 // Сколько тиков камера смотрит на место взрыва (2,75 с).
 const IMPACT_HOLD = 165;
@@ -217,7 +218,7 @@ export class Game {
     if (sd && this.turnNumber >= sd) {
       if (!this.suddenDeath) {
         this.suddenDeath = true;
-        this.banner('Внезапная смерть!', 'Вода поднимается', '#5ec8ff');
+        this.banner(tr('Внезапная смерть!'), tr('Вода поднимается'), '#5ec8ff');
         this.sfx.say('n', 'suddenDeath', { priority: 3 });
       }
       this.waterTarget = Math.max(260, this.waterTarget - 24);
@@ -225,7 +226,7 @@ export class Game {
     this.damageMult = team.double ? 2 : 1;
     if (team.double) {
       team.double = false;
-      this.banner('Двойной урон!', team.name, team.color);
+      this.banner(tr('Двойной урон!'), team.name, team.color);
       this.sfx.say('n', 'doubleDamage', { priority: 3 });
     }
 
@@ -286,12 +287,12 @@ export class Game {
     const prev = this.active;
     if (this.turnKills >= 2) {
       const triple = this.turnKills >= 3;
-      this.banner(triple ? 'Тройное убийство!' : 'Двойное убийство!', prev ? prev.name : '', '#ff5d5d');
+      this.banner(tr(triple ? 'Тройное убийство!' : 'Двойное убийство!'), prev ? prev.name : '', '#ff5d5d');
       this.sfx.say('n', triple ? 'tripleKill' : 'doubleKill', { priority: 3 });
       return;
     }
     if (this.turnDamage >= 90) {
-      this.banner('Вот это удар!', `${this.turnDamage} урона за ход`, '#ffcf3f');
+      this.banner(tr('Вот это удар!'), tr('{n} урона за ход', { n: this.turnDamage }), '#ffcf3f');
       this.sfx.say('n', 'bigHit', { priority: 3 });
       return;
     }
@@ -457,14 +458,14 @@ export class Game {
         this.quake = 160;
         this.sfx.play('quake', { vol: 1 });
         this.sfx.boom(1.6, 0);
-        this.banner('Землетрясение!', '', '#ff9a3c');
+        this.banner(tr('Землетрясение!'), '', '#ff9a3c');
         this.sfx.say('n', 'quake', { priority: 3 });
         break;
       case 'armageddon':
         for (let i = 0; i < 20; i++) {
           this.spawnQueue.push({ delay: 20 + i * 11 + Math.floor(Math.random() * 8), kind: 'meteor', x: rand(80, WORLD_W - 80) });
         }
-        this.banner('Армагеддон!', 'С неба падают метеориты', '#ff5d2a');
+        this.banner(tr('Армагеддон!'), tr('С неба падают метеориты'), '#ff5d2a');
         this.sfx.say('n', 'armageddon', { priority: 3 });
         this.say(w, 'armageddon', 0.6);
         break;
@@ -504,7 +505,7 @@ export class Game {
         this.swingBat(w, v);
         break;
       case 'skip':
-        this.toast(`${w.name} пропускает ход`);
+        this.toast(tr('{name} пропускает ход', { name: w.name }));
         this.say(w, 'skip', 0.9);
         this.enterSettle();
         return;
@@ -559,7 +560,7 @@ export class Game {
     } else if (id === 'teleport') {
       if (pt.x < 10 || pt.x > WORLD_W - 10 || pt.y < -100 || pt.y > WATER.y - 20 || wormCollides(this.terrain, pt.x, pt.y)) {
         this.sfx.beep(220, 0.15, 0.15);
-        this.toast('Сюда телепортироваться нельзя');
+        this.toast(tr('Сюда телепортироваться нельзя'));
         return;
       }
       this.fx.teleport(w.x, w.y - 4);
@@ -993,7 +994,7 @@ export class Game {
     this.turnKills++;
     this.kills++;
     if (this.kills === 1) {
-      this.banner('Первая кровь!', '', '#ff4040');
+      this.banner(tr('Первая кровь!'), '', '#ff4040');
       this.sfx.say('n', 'firstBlood', { priority: 3 });
     }
   }
@@ -1013,7 +1014,7 @@ export class Game {
     w.hp = 0;
     this.countKill();
     this.fx.splash(w.x, WATER.y, 1.2);
-    this.fx.text(w.x, WATER.y - 30, 'Буль-буль!', '#bfe4ff', 14, 90);
+    this.fx.text(w.x, WATER.y - 30, tr('Буль-буль!'), '#bfe4ff', 14, 90);
     this.sfx.splash(1.3, this.panAt(w.x));
     this.say(w, 'drown', 1, 3);
     if (this.controllable && (w === this.active || this.aliveTeams().length <= 1)) this.enterSettle();
@@ -1058,7 +1059,7 @@ export class Game {
         }
         if (this.turnTimeLeft <= 0) {
           this.turnTimeLeft = 0;
-          this.toast('Время вышло!');
+          this.toast(tr('Время вышло!'));
           this.say(this.active, 'timeup', 0.9, 2);
           this.enterSettle();
           break;
@@ -1095,7 +1096,7 @@ export class Game {
         dying.dyingTimer = 75;
         this.focusWorm = dying;
         this.camera.manual = 0;
-        this.fx.text(dying.x, dying.y - 30, `${dying.name} выбывает!`, '#fff', 13, 90);
+        this.fx.text(dying.x, dying.y - 30, tr('{name} выбывает!', { name: dying.name }), '#fff', 13, 90);
         this.say(dying, 'death', 1, 3);
         this.sfx.slideWhistle(this.panAt(dying.x));
         return;
@@ -1137,7 +1138,7 @@ export class Game {
       if (ev === 'bounce') this.sfx.tonk(this.panAt(p.x));
       if (p.cfg.holy && p.fuse === 55) {
         this.sfx.choir(this.panAt(p.x));
-        this.fx.text(p.x, p.y - 26, 'Аллилуйя!', '#fff1a8', 16, 70);
+        this.fx.text(p.x, p.y - 26, tr('Аллилуйя!'), '#fff1a8', 16, 70);
       }
       if (p.cfg.fiery && this.time % 2 === 0) this.fx.dust(p.x, p.y);
       if (ev === 'explode' && p.cfg.flame) {
@@ -1315,7 +1316,7 @@ export class Game {
       this.fx.text(w.x, w.y - 32, '+25', '#7dff8a', 16, 80);
     } else if (it.content === 'double') {
       w.team.double = true;
-      this.fx.text(w.x, w.y - 32, 'Двойной урон в следующий ход!', '#ff9a3c', 12, 100);
+      this.fx.text(w.x, w.y - 32, tr('Двойной урон в следующий ход!'), '#ff9a3c', 12, 100);
     } else {
       const team = w.team;
       if (team.ammo[it.content] !== Infinity) team.ammo[it.content]++;
@@ -1464,12 +1465,12 @@ export class Game {
       if (!a.firePressed) return;
     }
     if (def.needsTarget && a.firePressed && !this.homingTarget && !this.charging) {
-      this.toast('Сначала кликните по цели');
+      this.toast(tr('Сначала кликните по цели'));
       return;
     }
     if (def.target) {
       if (a.click && w.grounded) this.fireAt(a.click);
-      else if (a.firePressed) this.toast('Кликните по карте, чтобы выбрать цель');
+      else if (a.firePressed) this.toast(tr('Кликните по карте, чтобы выбрать цель'));
       return;
     }
     if (def.charge) {

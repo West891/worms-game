@@ -1,4 +1,6 @@
 // Общие константы игры. Скорости — в пикселях за тик, тик = 1/60 секунды.
+import { t, NAMES } from './i18n.js';
+
 export const TICK = 1 / 60;
 export const WORLD_W = 2560;
 export const WORLD_H = 1280;
@@ -23,14 +25,10 @@ export const RETREAT_TIME = 3;
 export const SETTLE_DELAY = 0.6;
 
 export const TEAM_DEFS = [
-  { name: 'Красные', color: '#ff5d5d' },
-  { name: 'Синие', color: '#53a8ff' },
-  { name: 'Зелёные', color: '#5fe36c' },
-  { name: 'Жёлтые', color: '#ffd84a' },
+  { name: t('Красные'), color: '#ff5d5d' },
+  { name: t('Синие'), color: '#53a8ff' },
+  { name: t('Зелёные'), color: '#5fe36c' },
+  { name: t('Жёлтые'), color: '#ffd84a' },
 ];
 
-export const WORM_NAMES = [
-  'Боб', 'Сосиска', 'Генерал', 'Пухляш', 'Шнурок', 'Кузя', 'Бублик', 'Профессор',
-  'Ржавый', 'Колбаска', 'Мистер Пинк', 'Спагетти', 'Шрапнель', 'Динамо', 'Кексик',
-  'Бобёр', 'Матрос', 'Фитиль', 'Носок', 'Пельмень', 'Лапша', 'Барон', 'Ёжик', 'Шуруп',
-];
+export const WORM_NAMES = NAMES;

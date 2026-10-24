@@ -4,19 +4,25 @@ import { PROTOCOL } from './config.js';
 import { HostSession, GuestSession } from './session.js';
 import { rand, pick } from '../rng.js';
 import { MAP_KEYS } from '../maps.js';
+import { t as tr, LANG } from '../i18n.js';
 
 const $ = (sel) => document.querySelector(sel);
 const CODE_ABC = 'abcdefghjkmnpqrstuvwxyz23456789';
-const BOT_NICKS = [
+// Боты называют себя так, как назвался бы живой игрок с тем же языком.
+const BOT_NICKS = LANG === 'en' ? [
+  'BazookaKing', 'xX_Worm_Xx', 'Sniper2011', 'NoobMaster', 'MegaWorm', 'Shrimp', 'Grenadier', 'Wormzilla',
+  'ProRocket', 'Kamikadze', 'LuckyLarry', 'SirBoomsALot', 'wormy_mcwormface', 'Captain_Dirt', 'TotallyNotABot',
+  'Sausage_99', 'JellyBean', 'DigDug', 'Mr_Kaboom', 'BananaJoe', 'Grub', 'Tunnel_Rat',
+] : [
   'Червяк_Гром', 'BazookaKing', 'Пельмешка', 'xX_Worm_Xx', 'Snaiper2011', 'Danya_Pro', 'Kolbasa777',
   'ТихийУжас', 'MegaWorm', 'Лёха', 'Shrimp', 'NoobMaster', 'Ваня_из_5Б', 'Grenadier', 'Котлетка',
   'Wormzilla', 'Дядя_Боря', 'Pashtet', 'Sosiska_99', 'Kamikadze', 'Мармеладка', 'ProRocket',
 ];
 
-export const randomNick = () => 'Игрок' + Math.floor(1000 + Math.random() * 9000);
+export const randomNick = () => tr('Игрок') + Math.floor(1000 + Math.random() * 9000);
 const botNick = () => pick(BOT_NICKS) + (Math.random() < 0.4 ? Math.floor(Math.random() * 100) : '');
 const clean = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const safeNick = (s) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 18) || 'Игрок';
+const safeNick = (s) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 18) || tr('Игрок');
 
 export class Online {
   // hooks: startHost(channel, opts, session), startGuest(channel, setup), startBot(opts), peerLost(role), rate()
@@ -47,7 +53,7 @@ export class Online {
 
   // --- Экран ожидания ------------------------------------------------------
 
-  showWait({ title, text = '', code = null, canStart = false, startLabel = 'Начать игру' }) {
+  showWait({ title, text = '', code = null, canStart = false, startLabel = tr('Начать игру') }) {
     for (const el of document.querySelectorAll('.screen')) el.classList.add('hidden');
     $('#net-wait').classList.remove('hidden');
     $('#net-title').textContent = title;
@@ -67,7 +73,7 @@ export class Online {
     this.nick = safeNick(nick);
     this.mode = 'search';
     this.searchStart = performance.now();
-    this.showWait({ title: 'Ищем соперника…', text: 'Подключаемся…' });
+    this.showWait({ title: tr('Ищем соперника…'), text: tr('Подключаемся…') });
     const t = await this.ensure();
     if (this.mode !== 'search') return;
     // Если живых нет, через несколько секунд «находится» бот.
@@ -78,7 +84,7 @@ export class Online {
 
   searchTick(now) {
     const sec = Math.floor((now - this.searchStart) / 1000);
-    this.setWaitText(`Прошло ${sec} с`);
+    this.setWaitText(tr('Прошло {sec} с', { sec }));
     const t = this.transport;
     if (t && !this.committing) {
       const myId = t.lobby.id;
@@ -114,7 +120,7 @@ export class Online {
     const name = ('d-' + clean(host ? myId : partner.id).slice(0, 20) + '-' + clean(host ? partner.id : myId).slice(0, 20)).slice(0, 48);
     const theirNick = safeNick(partner.presence.mm.nick);
     t.lobby.setPresence({ mm: { v: PROTOCOL, nick: this.nick, since: partner.presence.mm.since, st: 'match', with: partner.id } });
-    this.setWaitText(`Соперник найден: ${theirNick}. Подключаемся…`);
+    this.setWaitText(tr('Соперник найден: {nick}. Подключаемся…', { nick: theirNick }));
     try {
       this.channel = await t.join(name);
     } catch (e) {
@@ -163,7 +169,7 @@ export class Online {
     this.leaveLobby();
     const opponent = botNick();
     this.mode = null;
-    this.setWaitText(`Соперник найден: ${opponent}`);
+    this.setWaitText(tr('Соперник найден: {nick}', { nick: opponent }));
     setTimeout(() => this.hooks.startBot({
       teams: [
         { name: this.nick, color: '#ff5d5d', owner: 'local', online: true },
@@ -181,22 +187,22 @@ export class Online {
     this.nick = safeNick(nick);
     this.friendMode = friendMode;
     this.mode = 'room-host';
-    this.showWait({ title: 'Комната для друга', text: 'Создаём комнату…' });
+    this.showWait({ title: tr('Комната для друга'), text: tr('Создаём комнату…') });
     const t = await this.ensure();
     if (this.mode !== 'room-host') return;
-    if (!t) { this.showError('Сетевая игра здесь недоступна'); return; }
+    if (!t) { this.showError(tr('Сетевая игра здесь недоступна')); return; }
     const code = Array.from({ length: 6 }, () => CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)]).join('');
     try {
       this.channel = await t.join('f-' + code);
     } catch (e) {
-      this.showError('Не удалось создать комнату. Попробуйте ещё раз.');
+      this.showError(tr('Не удалось создать комнату. Попробуйте ещё раз.'));
       return;
     }
     this.code = code;
     this.channel.setPresence({ host: { v: PROTOCOL, nick: this.nick, mode: friendMode } });
     this.showWait({
-      title: friendMode === 'coop' ? 'Вдвоём против компьютера' : 'Друг против друга',
-      text: 'Отправьте другу код. Он открывает игру → «Онлайн» → вводит код.',
+      title: tr(friendMode === 'coop' ? 'Вдвоём против компьютера' : 'Друг против друга'),
+      text: tr('Отправьте другу код. Он открывает игру → «Онлайн» → вводит код.'),
       code,
       canStart: false,
     });
@@ -208,8 +214,8 @@ export class Online {
     $('#net-start').classList.toggle('hidden', !ready);
     this.guestNick = guest ? safeNick(guest.presence.hello.nick) : null;
     const text = ready
-      ? `Друг подключился: ${this.guestNick}. Можно начинать!`
-      : 'Отправьте другу код. Он открывает игру → «Онлайн» → вводит код.';
+      ? tr('Друг подключился: {nick}. Можно начинать!', { nick: this.guestNick })
+      : tr('Отправьте другу код. Он открывает игру → «Онлайн» → вводит код.');
     if ($('#net-text').textContent !== text) this.setWaitText(text);
   }
 
@@ -217,8 +223,8 @@ export class Online {
     if (this.mode !== 'room-host' || !this.guestNick) return;
     const teams = this.friendMode === 'coop'
       ? [
-        { name: 'Друзья', color: '#5fe36c', owner: 'mixed', online: true },
-        { name: 'Компьютер', color: '#ff5d5d', ai: true },
+        { name: tr('Друзья'), color: '#5fe36c', owner: 'mixed', online: true },
+        { name: tr('Компьютер'), color: '#ff5d5d', ai: true },
       ]
       : duelTeams(this.nick, this.guestNick);
     this.startHost(teams, settings, 'friend');
@@ -227,17 +233,17 @@ export class Online {
   async joinRoom(nick, rawCode) {
     this.cancel();
     const code = clean(rawCode);
-    if (code.length !== 6) { this.showError('Код комнаты — 6 букв и цифр'); return; }
+    if (code.length !== 6) { this.showError(tr('Код комнаты — 6 букв и цифр')); return; }
     this.nick = safeNick(nick);
     this.mode = 'room-guest';
-    this.showWait({ title: 'Подключаемся к другу…', text: `Комната ${code.toUpperCase()}` });
+    this.showWait({ title: tr('Подключаемся к другу…'), text: tr('Комната {code}', { code: code.toUpperCase() }) });
     const t = await this.ensure();
     if (this.mode !== 'room-guest') return;
-    if (!t) { this.showError('Сетевая игра здесь недоступна'); return; }
+    if (!t) { this.showError(tr('Сетевая игра здесь недоступна')); return; }
     try {
       this.channel = await t.join('f-' + code);
     } catch (e) {
-      this.showError('Не удалось подключиться. Проверьте код.');
+      this.showError(tr('Не удалось подключиться. Проверьте код.'));
       return;
     }
     this.channel.setPresence({ hello: { v: PROTOCOL, nick: this.nick } });
@@ -252,10 +258,10 @@ export class Online {
     }
     if (host) {
       this.joinDeadline = Infinity;
-      if (host.presence.host.v !== PROTOCOL) { this.showError('У друга другая версия игры — обновите страницу'); return; }
-      this.setWaitText(`Вы в комнате у ${safeNick(host.presence.host.nick)}. Ждём, когда начнётся игра.`);
+      if (host.presence.host.v !== PROTOCOL) { this.showError(tr('У друга другая версия игры — обновите страницу')); return; }
+      this.setWaitText(tr('Вы в комнате у {nick}. Ждём, когда начнётся игра.', { nick: safeNick(host.presence.host.nick) }));
     } else if (now > this.joinDeadline) {
-      this.showError('Комната не найдена. Проверьте код или попросите друга создать новую.');
+      this.showError(tr('Комната не найдена. Проверьте код или попросите друга создать новую.'));
     }
   }
 
@@ -272,7 +278,7 @@ export class Online {
 
   startGuest(rawSetup, kind) {
     const setup = sanitizeSetup(rawSetup);
-    if (!setup) { this.showError('Хост прислал непонятные данные'); return; }
+    if (!setup) { this.showError(tr('Хост прислал непонятные данные')); return; }
     this.mode = 'playing';
     this.playKind = kind;
     this.hooks.startGuest({ setup, role: 'guest' }, (game) => {
@@ -296,7 +302,7 @@ export class Online {
 
   showError(text) {
     this.cancel();
-    this.showWait({ title: 'Не получилось', text });
+    this.showWait({ title: tr('Не получилось'), text });
   }
 
   leaveLobby() {

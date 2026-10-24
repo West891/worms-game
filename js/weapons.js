@@ -1,31 +1,32 @@
 import { PHYS, WIND_ACCEL, WATER, WORLD_W } from './config.js';
+import { t } from './i18n.js';
 import { wormCollides } from './worm.js';
 import { glowSprite, flameSprite } from './sprites.js';
 
 // Оружие. ammo: Infinity — без ограничений.
 export const WEAPONS = [
-  { id: 'bazooka', name: 'Базука', icon: 'bazooka', ammo: Infinity, charge: true, speed: 14, hint: 'Ракета летит по ветру' },
-  { id: 'homing', name: 'Самонаводящаяся ракета', icon: 'homing', ammo: 1, charge: true, speed: 12, needsTarget: true, hint: 'Кликни цель, потом стреляй' },
-  { id: 'grenade', name: 'Граната', icon: 'grenade', ammo: Infinity, charge: true, fuse: true, speed: 11, hint: 'Таймер 1–5 с, отскакивает' },
-  { id: 'cluster', name: 'Кассетная граната', icon: 'cluster', ammo: 3, charge: true, fuse: true, speed: 11, hint: 'Разлетается на осколки' },
-  { id: 'banana', name: 'Банановая бомба', icon: 'banana', ammo: 1, charge: true, fuse: true, speed: 11, hint: 'Пять прыгучих бананов-бомб' },
-  { id: 'holy', name: 'Святая граната', icon: 'holy', ammo: 1, charge: true, speed: 10, hint: 'Аллилуйя! Огромный взрыв' },
-  { id: 'molotov', name: 'Коктейль Молотова', icon: 'molotov', ammo: 2, charge: true, speed: 12, hint: 'Разливает огонь' },
-  { id: 'shotgun', name: 'Дробовик', icon: 'shotgun', ammo: Infinity, shots: 2, hint: 'Два выстрела за ход' },
-  { id: 'bat', name: 'Бейсбольная бита', icon: 'bat', ammo: 2, hint: 'Выбивает соседа с карты' },
-  { id: 'punch', name: 'Огненный кулак', icon: 'punch', ammo: 2, hint: 'Апперкот: подбрасывает соседа' },
-  { id: 'dynamite', name: 'Динамит', icon: 'dynamite', ammo: 2, hint: 'Положи и беги!' },
-  { id: 'mine', name: 'Мина', icon: 'mine', ammo: 2, hint: 'Срабатывает рядом с червяком' },
-  { id: 'sheep', name: 'Овца', icon: 'sheep', ammo: 1, hint: 'Бежит вперёд. «Огонь» ещё раз — взрыв' },
-  { id: 'airstrike', name: 'Авиаудар', icon: 'airstrike', ammo: 1, target: true, hint: 'Кликни по карте' },
-  { id: 'donkey', name: 'Бетонный осёл', icon: 'donkey', ammo: 1, target: true, hint: 'Падает с неба и пробивает всё' },
-  { id: 'eagle', name: 'Самонаводящийся орёл', icon: 'eagle', ammo: 1, target: true, hint: 'Кликни цель — орёл облетит препятствия и спикирует' },
-  { id: 'armageddon', name: 'Армагеддон', icon: 'armageddon', ammo: 1, hint: 'Метеоритный дождь по всей карте' },
-  { id: 'quake', name: 'Землетрясение', icon: 'quake', ammo: 1, hint: 'Трясёт всех червяков на карте' },
-  { id: 'rope', name: 'Ниндзя-верёвка', icon: 'rope', ammo: Infinity, rope: true, hint: 'Огонь — крюк, ←→ раскачка, ↑↓ длина, прыжок — отцепиться' },
-  { id: 'drill', name: 'Лазерный бур', icon: 'drill', ammo: Infinity, drill: true, hint: 'Огонь — бурить, ↑↓ направление, огонь или прыжок — стоп' },
-  { id: 'teleport', name: 'Телепорт', icon: 'teleport', ammo: 2, target: true, hint: 'Кликни, куда переместиться' },
-  { id: 'skip', name: 'Пропустить ход', icon: 'skip', ammo: Infinity, hint: 'Ничего не делать' },
+  { id: 'bazooka', name: t('Базука'), icon: 'bazooka', ammo: Infinity, charge: true, speed: 14, hint: t('Ракета летит по ветру') },
+  { id: 'homing', name: t('Самонаводящаяся ракета'), icon: 'homing', ammo: 1, charge: true, speed: 12, needsTarget: true, hint: t('Кликни цель, потом стреляй') },
+  { id: 'grenade', name: t('Граната'), icon: 'grenade', ammo: Infinity, charge: true, fuse: true, speed: 11, hint: t('Таймер 1–5 с, отскакивает') },
+  { id: 'cluster', name: t('Кассетная граната'), icon: 'cluster', ammo: 3, charge: true, fuse: true, speed: 11, hint: t('Разлетается на осколки') },
+  { id: 'banana', name: t('Банановая бомба'), icon: 'banana', ammo: 1, charge: true, fuse: true, speed: 11, hint: t('Пять прыгучих бананов-бомб') },
+  { id: 'holy', name: t('Святая граната'), icon: 'holy', ammo: 1, charge: true, speed: 10, hint: t('Аллилуйя! Огромный взрыв') },
+  { id: 'molotov', name: t('Коктейль Молотова'), icon: 'molotov', ammo: 2, charge: true, speed: 12, hint: t('Разливает огонь') },
+  { id: 'shotgun', name: t('Дробовик'), icon: 'shotgun', ammo: Infinity, shots: 2, hint: t('Два выстрела за ход') },
+  { id: 'bat', name: t('Бейсбольная бита'), icon: 'bat', ammo: 2, hint: t('Выбивает соседа с карты') },
+  { id: 'punch', name: t('Огненный кулак'), icon: 'punch', ammo: 2, hint: t('Апперкот: подбрасывает соседа') },
+  { id: 'dynamite', name: t('Динамит'), icon: 'dynamite', ammo: 2, hint: t('Положи и беги!') },
+  { id: 'mine', name: t('Мина'), icon: 'mine', ammo: 2, hint: t('Срабатывает рядом с червяком') },
+  { id: 'sheep', name: t('Овца'), icon: 'sheep', ammo: 1, hint: t('Бежит вперёд. «Огонь» ещё раз — взрыв') },
+  { id: 'airstrike', name: t('Авиаудар'), icon: 'airstrike', ammo: 1, target: true, hint: t('Кликни по карте') },
+  { id: 'donkey', name: t('Бетонный осёл'), icon: 'donkey', ammo: 1, target: true, hint: t('Падает с неба и пробивает всё') },
+  { id: 'eagle', name: t('Самонаводящийся орёл'), icon: 'eagle', ammo: 1, target: true, hint: t('Кликни цель — орёл облетит препятствия и спикирует') },
+  { id: 'armageddon', name: t('Армагеддон'), icon: 'armageddon', ammo: 1, hint: t('Метеоритный дождь по всей карте') },
+  { id: 'quake', name: t('Землетрясение'), icon: 'quake', ammo: 1, hint: t('Трясёт всех червяков на карте') },
+  { id: 'rope', name: t('Ниндзя-верёвка'), icon: 'rope', ammo: Infinity, rope: true, hint: t('Огонь — крюк, ←→ раскачка, ↑↓ длина, прыжок — отцепиться') },
+  { id: 'drill', name: t('Лазерный бур'), icon: 'drill', ammo: Infinity, drill: true, hint: t('Огонь — бурить, ↑↓ направление, огонь или прыжок — стоп') },
+  { id: 'teleport', name: t('Телепорт'), icon: 'teleport', ammo: 2, target: true, hint: t('Кликни, куда переместиться') },
+  { id: 'skip', name: t('Пропустить ход'), icon: 'skip', ammo: Infinity, hint: t('Ничего не делать') },
 ];
 
 // Что может выпасть из ящика с оружием (редкое — только отсюда).

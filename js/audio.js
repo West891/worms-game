@@ -1,6 +1,8 @@
 // Звук через Web Audio. Семплы Kenney дополняются синтезом: каждый эффект
 // собирается из нескольких слоёв, проходит через панораму, общий компрессор
 // и немного реверберации. Голоса червяков — отдельная шина.
+import { LANG } from './i18n.js';
+
 const SOUNDS = [
   'explosion', 'fire', 'shotgun', 'select', 'jump', 'backflip', 'land', 'hurt', 'throw',
   'walk', 'pickup', 'break', 'impact', 'click', 'tick', 'teleport',
@@ -118,9 +120,15 @@ class AudioManager {
   // Заранее подгрузить частые реплики, пока игрок смотрит на меню.
   preloadVoices(categories) {
     if (!this.voices) return;
-    for (const bank of Object.values(this.voices.banks)) {
-      for (const cat of categories) for (const f of bank[cat] || []) this.voiceBuffer(f);
+    for (const name of ['a', 'b', 'n']) {
+      const bank = this.voices.banks[this.bankFor(name)];
+      if (bank) for (const cat of categories) for (const f of bank[cat] || []) this.voiceBuffer(f);
     }
+  }
+
+  // Английские реплики лежат в банках с префиксом «e» (ea, eb, en).
+  bankFor(bank) {
+    return LANG === 'en' && this.voices && this.voices.banks['e' + bank] ? 'e' + bank : bank;
   }
 
   get hasVoices() { return !!this.voices; }
@@ -473,6 +481,7 @@ class AudioManager {
   // Произносит случайную реплику категории. Важные реплики перебивают текущую.
   say(bank, category, { pan = 0, rate = 1, priority = 1 } = {}) {
     if (!this.ready || !this.voicesOn || !this.voices) return false;
+    bank = this.bankFor(bank);
     const list = this.voices.banks[bank] && this.voices.banks[bank][category];
     if (!list || !list.length) return false;
     const cur = this.currentVoice;
@@ -639,6 +648,7 @@ class AudioManager {
   // Короткий звуковой клип из банка голосов, не прерывающий реплики червяков.
   clip(bank, category, { pan = 0, vol = 1, rate = 1 } = {}) {
     if (!this.ready || !this.voices) return;
+    bank = this.bankFor(bank);
     const list = this.voices.banks[bank] && this.voices.banks[bank][category];
     if (!list || !list.length) return;
     Promise.resolve(this.voiceBuffer(list[Math.floor(Math.random() * list.length)])).then((buf) => {
