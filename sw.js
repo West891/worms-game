@@ -8,7 +8,7 @@
 // Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = 'c87a39349837';
+const VERSION = 'bf70ddfa97d8';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",

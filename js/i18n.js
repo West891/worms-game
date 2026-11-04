@@ -124,6 +124,11 @@ const EN = {
   'Продолжить': 'Resume',
   'В меню': 'Main menu',
   'Ещё раз': 'Play again',
+  '📺 Реванш с бонусом': '📺 Rematch with a bonus',
+  'Ящик за рекламу: случайное супер-оружие': 'Watch an ad for a crate: a random super weapon',
+  'Бонус: святая граната, орёл и осёл!': 'Bonus: holy grenade, eagle and donkey!',
+  'Реклама сейчас недоступна — попробуйте позже.': 'No ad is available right now — try again later.',
+  'Награда: {weapon}!': 'Reward: {weapon}!',
   'Найти нового соперника': 'Find a new opponent',
   'Поверните телефон — так удобнее играть': 'Turn your phone sideways — it’s easier to play',
   'Ошибка загрузки: {msg}. Запустите игру через локальный сервер (см. README).':

@@ -587,3 +587,9 @@ body.touch #bottom { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-
 @media (max-width: 760px) {
   #menu, #net-wait { padding-top: calc(64px + env(safe-area-inset-top, 0px)); }
 }
+
+/* Реклама за вознаграждение (только в сборке для игровых площадок). */
+#hud-buttons #btn-reward { background: #3a2a10; border-color: var(--accent); animation: reward-pulse 1.6s ease-in-out infinite; }
+@keyframes reward-pulse { 50% { transform: scale(1.08); } }
+#btn-bonus { background: #3a2a10; color: var(--accent); border: 2px solid var(--accent); }
+@media (prefers-reduced-motion: reduce) { #hud-buttons #btn-reward { animation: none; } }

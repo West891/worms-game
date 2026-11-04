@@ -8,7 +8,11 @@ import { Online, randomNick } from './net/online.js';
 import { QUALITY, DEVICE, setQualityMode, trackFrame, isTouchDevice } from './quality.js';
 import { t, LANG, setLang, translateDom } from './i18n.js';
 import { APP_VERSION } from './version.js';
-import { gameReady, gameplayStart, gameplayStop, showAdBreak, onPlatformPause, platformNick } from './platform.js';
+import {
+  gp, gameReady, gameplayStart, gameplayStop, showAdBreak, showPreloaderAd, showRewarded, rewardedAvailable,
+  showSticky, onPlatformPause, platformNick,
+} from './platform.js';
+import { WEAPON_BY_ID } from './weapons.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#game');
@@ -18,6 +22,12 @@ let ui = null;
 let assets = null;
 let game = null;
 let lastSettings = null;
+// Награды за рекламу: супер-оружие в следующей партии и «ящик» один раз за партию.
+let bonusNext = false;
+let rewardUsed = new Set();
+let ownAd = false;
+const BONUS_WEAPONS = ['holy', 'eagle', 'donkey'];
+const REWARD_WEAPONS = ['holy', 'eagle', 'donkey', 'armageddon', 'banana', 'airstrike', 'sheep'];
 // local — на одном устройстве, bot — «онлайн» против подставного бота,
 // match — найденный соперник, friend — комната с другом.
 let playMode = 'local';
@@ -147,11 +157,25 @@ function startGame(settings, mode = 'local', afterCreate = null) {
   setTimeout(() => {
     game = new Game(settings, assets, ui);
     if (afterCreate) afterCreate(game);
+    rewardUsed = new Set();
+    if (bonusNext && mode === 'local') {
+      bonusNext = false;
+      for (const team of game.teams) if (!team.ai) for (const id of BONUS_WEAPONS) team.ammo[id]++;
+      setTimeout(() => ui.toast(t('Бонус: святая граната, орёл и осёл!')), 1500);
+    }
     const map = game.terrain.theme;
     audio.startAmbience(map.ambience, map.music);
     ui.attach(game);
     showScreen(null);
   }, 30);
+}
+
+// Кнопки рекламы за вознаграждение видны, только когда ролик можно показать.
+function updateAdButtons() {
+  const local = playMode === 'local';
+  $('#btn-reward').classList.toggle('hidden', !(local && !game.over && !game.paused && game.isMyTurn &&
+    game.state === 'aim' && !rewardUsed.has(game.activeTeam) && rewardedAvailable()));
+  $('#btn-bonus').classList.toggle('hidden', !(local && game.over && rewardedAvailable()));
 }
 
 function toMenu() {
@@ -169,6 +193,7 @@ function toMenu() {
   playMode = 'local';
   ui.hideHud();
   showScreen('#menu');
+  showSticky();
   reloadIfUpdated();
 }
 
@@ -257,6 +282,7 @@ function frame(now) {
     game.updateCamera(input, window.innerWidth, window.innerHeight);
     game.render(ctx, window.innerWidth, window.innerHeight, dpr, input);
     ui.frame(game);
+    if (gp) updateAdButtons();
   } else {
     input.clearEdges();
     drawMenuBackground();
@@ -343,12 +369,12 @@ async function boot() {
   // Реклама и пауза от игровой площадки: молчим, а партию на одном устройстве ставим на паузу.
   let platformPaused = false;
   onPlatformPause(() => {
-    if (platformPaused) return;
+    if (platformPaused || ownAd) return;
     platformPaused = true;
     if (game && !game.over && playMode === 'local' && !game.paused) setPaused(true);
     audio.suspend();
   }, () => {
-    if (!platformPaused) return;
+    if (!platformPaused || ownAd) return;
     platformPaused = false;
     if (!audio.paused && !document.hidden) audio.resume();
   });
@@ -360,7 +386,55 @@ async function boot() {
     startGame(s);
   });
   $('#btn-resume').addEventListener('click', () => setPaused(false));
-  $('#btn-quit').addEventListener('click', toMenu);
+  // Вышли из партии в меню — естественная пауза, можно показать рекламу.
+  $('#btn-quit').addEventListener('click', async () => {
+    gameplayStop();
+    $('#pause').classList.add('hidden');
+    await showAdBreak();
+    toMenu();
+  });
+  // «Реванш с бонусом»: ролик за вознаграждение, потом новая партия с супер-оружием.
+  $('#btn-bonus').addEventListener('click', async () => {
+    gameplayStop();
+    ownAd = true;
+    audio.paused = true;
+    audio.suspend();
+    const ok = await showRewarded();
+    ownAd = false;
+    audio.paused = false;
+    if (!document.hidden) audio.resume();
+    if (!ok) { $('#go-sub').textContent = t('Реклама сейчас недоступна — попробуйте позже.'); return; }
+    bonusNext = true;
+    startGame(lastSettings);
+  });
+  // «Ящик за рекламу» в свой ход: игра и таймер стоят, пока идёт ролик.
+  $('#btn-reward').addEventListener('click', async () => {
+    if (!game || game.over || !game.isMyTurn || game.state !== 'aim') return;
+    const team = game.activeTeam;
+    if (rewardUsed.has(team)) return;
+    ownAd = true;
+    game.paused = true;
+    // paused — чтобы сам клик по кнопке (audio.unlock) не включил звук обратно.
+    audio.paused = true;
+    audio.suspend();
+    gameplayStop();
+    const ok = await showRewarded();
+    gameplayStart();
+    ownAd = false;
+    audio.paused = false;
+    if (game) {
+      game.paused = false;
+      if (!document.hidden) audio.resume();
+      if (ok) {
+        rewardUsed.add(team);
+        const id = REWARD_WEAPONS[Math.floor(Math.random() * REWARD_WEAPONS.length)];
+        team.ammo[id]++;
+        ui.onWeapon(game);
+        audio.fanfare();
+        ui.toast(t('Награда: {weapon}!', { weapon: WEAPON_BY_ID[id].name }));
+      }
+    }
+  });
   // После партии на игровых площадках — рекламная пауза (если площадка её даст).
   $('#btn-again').addEventListener('click', async () => {
     gameplayStop();
@@ -460,6 +534,7 @@ async function boot() {
 
   showScreen('#menu');
   gameReady();
+  showPreloaderAd().then(() => { if (!game) showSticky(); });
 }
 
 // Живой фон меню: зацикленное видео поверх статичной заставки.
