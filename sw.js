@@ -1,11 +1,14 @@
 // Сервис-воркер: игра открывается и работает без интернета.
 //
-// Код (HTML, JS, CSS) берётся из сети, а без сети — из кэша, поэтому обновления
-// приходят сразу. Картинки, звуки и голоса кладутся в кэш при установке, музыка —
-// когда впервые зазвучит. Списки и версии ниже пишет tools/build_pwa.py.
+// Каждая версия игры — целый комплект файлов в своём кэше: код, картинки, звуки
+// и голоса кладутся туда при установке, музыка — когда впервые зазвучит. Игра
+// всегда запускается из этого комплекта, поэтому файлы разных версий не смешиваются
+// даже на медленной сети. Новая версия приходит с новым sw.js: браузер ставит её
+// в фоне, а страница перезагружается, когда игрок в меню.
+// Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = '74c39e50d4c9';
+const VERSION = 'c1a6feb6e4ce';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
@@ -36,6 +39,7 @@ const PRECACHE = [
   "js/ui.js",
   "js/weapons.js",
   "js/worm.js",
+  "js/version.js",
   "assets/ambience/cemetery.mp3",
   "assets/ambience/desert.mp3",
   "assets/ambience/halloween.mp3",
@@ -397,7 +401,10 @@ const CORE = `core-${VERSION}`;
 const MEDIA = `media-${MEDIA_VERSION}`;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CORE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  // Мимо HTTP-кэша браузера: иначе в новый комплект попали бы старые файлы.
+  e.waitUntil(caches.open(CORE)
+    .then((c) => c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -407,7 +414,6 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-const isCode = (url) => url.pathname.endsWith('/') || /\.(html|js|css|webmanifest)$/.test(url.pathname);
 const isMusic = (url) => url.pathname.includes('/assets/music/');
 
 self.addEventListener('fetch', (e) => {
@@ -418,33 +424,22 @@ self.addEventListener('fetch', (e) => {
   // Видео заставки большое и нужно только при сети: не кэшируем.
   if (url.pathname.includes('/assets/video/')) return;
   if (req.headers.has('range')) e.respondWith(ranged(req, url));
-  else if (req.mode === 'navigate' || isCode(url)) e.respondWith(networkFirst(req));
+  else if (req.mode === 'navigate') e.respondWith(page(req));
+  else if (url.pathname.endsWith('/sw.js')) return;
   else e.respondWith(cacheFirst(req, isMusic(url) ? MEDIA : CORE));
 });
 
-async function networkFirst(req) {
-  const cache = await caches.open(CORE);
-  try {
-    // no-cache: сверяемся с сервером, а не берём копию из HTTP-кэша браузера
-    // (GitHub Pages разрешает ей жить 10 минут, и обновление запаздывало).
-    const res = await withTimeout(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }), 4000);
-    if (res.ok) cache.put(req, res.clone());
-    return res;
-  } catch (err) {
-    const hit = await cache.match(req, { ignoreSearch: true });
-    if (hit) return hit;
-    if (req.mode === 'navigate') {
-      const index = await cache.match('./');
-      if (index) return index;
-    }
-    throw err;
-  }
+// Страница — из комплекта текущей версии; из сети, только если её там нет.
+async function page(req) {
+  const hit = await caches.match('./');
+  if (hit) return hit;
+  return fetch(req);
 }
 
 async function cacheFirst(req, name) {
   const hit = await caches.match(req, { ignoreSearch: true });
   if (hit) return hit;
-  const res = await fetch(req);
+  const res = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
   if (res.ok) (await caches.open(name)).put(req, res.clone());
   return res;
 }
@@ -474,12 +469,5 @@ async function slice(req, res) {
       'Content-Length': String(end - start + 1),
       'Accept-Ranges': 'bytes',
     },
-  });
-}
-
-function withTimeout(p, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (err) => { clearTimeout(t); reject(err); });
   });
 }

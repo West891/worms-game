@@ -266,7 +266,9 @@ kbd {
   font-size: 19px;
   line-height: 1;
 }
-#corner #btn-install { font-size: 15px; color: var(--accent); }
+#corner #btn-install, #corner #btn-update { font-size: 15px; color: var(--accent); }
+#corner #btn-update { background: #3a2a10; border-color: var(--accent); }
+.app-version { margin: 10px 0 0; font-size: 11px; color: var(--muted); opacity: 0.6; text-align: center; }
 body.playing #corner, body.playing #install-hint { display: none; }
 #install-hint {
   position: fixed;

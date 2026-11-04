@@ -7,6 +7,7 @@ import { Game } from './game.js';
 import { Online, randomNick } from './net/online.js';
 import { QUALITY, DEVICE, setQualityMode, trackFrame, isTouchDevice } from './quality.js';
 import { t, LANG, setLang, translateDom } from './i18n.js';
+import { APP_VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#game');
@@ -275,6 +276,7 @@ function drawMenuBackground() {
 
 async function boot() {
   translateDom();
+  $('#app-version').textContent = t('версия {v}', { v: APP_VERSION.slice(0, 7) });
   if (LANG === 'en') {
     for (const img of document.querySelectorAll('.logo-img')) {
       img.src = 'assets/img/logo-en.webp';
@@ -505,6 +507,25 @@ window.__worms = { get game() { return game; }, get online() { return online; },
 
 let updateReady = false;
 
+// Есть ли на сайте версия новее запущенной. sw.js всегда берём с сервера.
+async function checkLatest() {
+  try {
+    const res = await fetch('sw.js', { cache: 'no-store' });
+    if (!res.ok) return;
+    const m = /const VERSION = '([0-9a-f]+)'/.exec(await res.text());
+    if (m && m[1] !== APP_VERSION) $('#btn-update').classList.remove('hidden');
+  } catch (e) { /* нет сети */ }
+}
+
+// Принудительное обновление: забываем сервис-воркер и кэши, грузим заново.
+async function hardUpdate() {
+  try {
+    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    for (const k of await caches.keys()) await caches.delete(k);
+  } catch (e) { /* что получилось — то и почистили */ }
+  location.reload();
+}
+
 function reloadIfUpdated() {
   if (!updateReady || game || (online && (online.mode || online.channel || online.session))) return;
   updateReady = false;
@@ -527,8 +548,10 @@ function setupInstall() {
     updateReady = true;
     reloadIfUpdated();
   });
+  $('#btn-update').addEventListener('click', hardUpdate);
+  checkLatest();
   navigator.serviceWorker.register('sw.js').then((reg) => {
-    const check = () => reg.update().catch(() => {});
+    const check = () => { reg.update().catch(() => {}); checkLatest(); };
     setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   }).catch(() => {});
