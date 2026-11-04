@@ -8,7 +8,7 @@
 // Списки и версии ниже пишет tools/build_pwa.py.
 
 // PRECACHE-START
-const VERSION = 'c1a6feb6e4ce';
+const VERSION = 'c87a39349837';
 const MEDIA_VERSION = 'fcc1f83d459c';
 const PRECACHE = [
   "./",
@@ -31,12 +31,14 @@ const PRECACHE = [
   "js/net/sync.js",
   "js/net/transport.js",
   "js/objects.js",
+  "js/platform.js",
   "js/quality.js",
   "js/rng.js",
   "js/scenery.js",
   "js/sprites.js",
   "js/terrain.js",
   "js/ui.js",
+  "js/vendor/supabase.min.js",
   "js/weapons.js",
   "js/worm.js",
   "js/version.js",

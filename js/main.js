@@ -8,6 +8,7 @@ import { Online, randomNick } from './net/online.js';
 import { QUALITY, DEVICE, setQualityMode, trackFrame, isTouchDevice } from './quality.js';
 import { t, LANG, setLang, translateDom } from './i18n.js';
 import { APP_VERSION } from './version.js';
+import { gameReady, gameplayStart, gameplayStop, showAdBreak, onPlatformPause, platformNick } from './platform.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#game');
@@ -120,6 +121,7 @@ function showScreen(id) {
 
 function startGame(settings, mode = 'local', afterCreate = null) {
   document.body.classList.add('playing');
+  gameplayStart();
   updateLiveBackground();
   audio.unlock();
   const prefs = readSettings();
@@ -154,6 +156,7 @@ function startGame(settings, mode = 'local', afterCreate = null) {
 
 function toMenu() {
   document.body.classList.remove('playing');
+  gameplayStop();
   // Вышли из паузы в меню — звук снова включён.
   audio.paused = false;
   audio.resume();
@@ -337,6 +340,18 @@ async function boot() {
     else if (!audio.paused) audio.resume();
     if (!document.hidden && game) requestWakeLock();
   });
+  // Реклама и пауза от игровой площадки: молчим, а партию на одном устройстве ставим на паузу.
+  let platformPaused = false;
+  onPlatformPause(() => {
+    if (platformPaused) return;
+    platformPaused = true;
+    if (game && !game.over && playMode === 'local' && !game.paused) setPaused(true);
+    audio.suspend();
+  }, () => {
+    if (!platformPaused) return;
+    platformPaused = false;
+    if (!audio.paused && !document.hidden) audio.resume();
+  });
   for (const btn of document.querySelectorAll('[data-act]')) input.bindButton(btn, btn.dataset.act);
 
   $('#btn-start').addEventListener('click', () => {
@@ -346,11 +361,18 @@ async function boot() {
   });
   $('#btn-resume').addEventListener('click', () => setPaused(false));
   $('#btn-quit').addEventListener('click', toMenu);
-  $('#btn-again').addEventListener('click', () => {
+  // После партии на игровых площадках — рекламная пауза (если площадка её даст).
+  $('#btn-again').addEventListener('click', async () => {
+    gameplayStop();
+    await showAdBreak();
     if (playMode === 'local') startGame(lastSettings);
     else { game = null; ui.hideHud(); document.body.classList.remove('playing'); updateLiveBackground(); findMatch(); }
   });
-  $('#btn-menu').addEventListener('click', toMenu);
+  $('#btn-menu').addEventListener('click', async () => {
+    gameplayStop();
+    await showAdBreak();
+    toMenu();
+  });
   $('#btn-pause').addEventListener('click', () => setPaused(true));
   $('#btn-mute').addEventListener('click', toggleMute);
   $('#btn-menu-mute').addEventListener('click', toggleMute);
@@ -391,7 +413,7 @@ async function boot() {
 
   // Онлайн.
   online = new Online(onlineHooks);
-  if (!$('#opt-nick').value) $('#opt-nick').value = randomNick();
+  if (!$('#opt-nick').value) $('#opt-nick').value = platformNick() || randomNick();
   $('#btn-find').addEventListener('click', findMatch);
   $('#btn-create').addEventListener('click', () => {
     const s = readSettings();
@@ -437,6 +459,7 @@ async function boot() {
   }
 
   showScreen('#menu');
+  gameReady();
 }
 
 // Живой фон меню: зацикленное видео поверх статичной заставки.

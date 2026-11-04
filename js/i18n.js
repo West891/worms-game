@@ -11,6 +11,9 @@ function detect() {
     const saved = localStorage.getItem(LANG_KEY);
     if (saved === 'ru' || saved === 'en') return saved;
   } catch (e) { /* хранилище недоступно */ }
+  // На игровой площадке язык задаёт она (GamePush кладёт SDK в window.__gp).
+  const gpLang = typeof window !== 'undefined' && window.__gp && window.__gp.language;
+  if (gpLang) return /^(ru|uk|be|kk|ky|uz|tg|hy|az|ka|tt|ba|sah|os)\b/i.test(gpLang) ? 'ru' : 'en';
   const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'ru'];
   // Русский и соседние языки, где русский обычно понимают, — по-русски, остальные — по-английски.
   return langs.some((l) => /^(ru|uk|be|kk|ky|uz|tg|hy|az|ka|tt|ba|sah|os)\b/i.test(l)) ? 'ru' : 'en';
